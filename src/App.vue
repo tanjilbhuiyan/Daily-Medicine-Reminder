@@ -1,5 +1,56 @@
 <template>
   <div class="container">
+    <!-- Notification Toast -->
+    <div v-if="notification.show" class="notification" :class="notification.type">
+      <div class="notification-content">
+        <span class="notification-icon">{{ notification.icon }}</span>
+        <span class="notification-message">{{ notification.message }}</span>
+        <button @click="hideNotification" class="notification-close">&times;</button>
+      </div>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div v-if="confirmDialog.show" class="modal-overlay" @click="cancelConfirm">
+      <div class="modal-dialog" @click.stop>
+        <div class="modal-header">
+          <div class="modal-icon" :class="confirmDialog.type">
+            {{ confirmDialog.icon }}
+          </div>
+          <h3 class="modal-title">{{ confirmDialog.title }}</h3>
+        </div>
+        
+        <div class="modal-body">
+          <div class="modal-medicine-info" v-if="confirmDialog.medicineName">
+            <strong>Medicine:</strong> "{{ confirmDialog.medicineName }}"
+          </div>
+          
+          <div class="modal-message">
+            {{ confirmDialog.message }}
+          </div>
+          
+          <div class="modal-details" v-if="confirmDialog.details && confirmDialog.details.length > 0">
+            <p><strong>This will permanently delete:</strong></p>
+            <ul>
+              <li v-for="detail in confirmDialog.details" :key="detail">{{ detail }}</li>
+            </ul>
+          </div>
+          
+          <div class="modal-warning" v-if="confirmDialog.warning">
+            <strong>⚠️ {{ confirmDialog.warning }}</strong>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button @click="cancelConfirm" class="btn-cancel">
+            {{ confirmDialog.cancelText || 'Cancel' }}
+          </button>
+          <button @click="confirmAction" class="btn-confirm" :class="confirmDialog.type">
+            {{ confirmDialog.confirmText || 'Confirm' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <h1>Daily Medicine Reminder</h1>
     
     <!-- Navigation Tabs -->
@@ -171,7 +222,6 @@
                 @click="deleteMedicine(medicine.id)" 
                 class="btn-delete"
                 title="Permanently delete this medicine"
-                onclick="return confirm('Are you sure you want to permanently delete this medicine? This action cannot be undone.')"
               >
                 Delete
               </button>
@@ -382,6 +432,25 @@ export default {
         scheduleType: '',
         customTimes: [],
         presetTimes: ''
+      },
+      notification: {
+        show: false,
+        message: '',
+        type: 'success', // success, error, warning, info
+        icon: '✓'
+      },
+      confirmDialog: {
+        show: false,
+        title: '',
+        message: '',
+        medicineName: '',
+        details: [],
+        warning: '',
+        type: 'danger', // danger, warning, info
+        icon: '⚠️',
+        confirmText: 'Confirm',
+        cancelText: 'Cancel',
+        onConfirm: null
       }
     }
   },
@@ -519,8 +588,34 @@ export default {
       }
     },
 
+    showNotification(message, type = 'success') {
+      const icons = {
+        success: '✓',
+        error: '✗',
+        warning: '⚠',
+        info: 'ℹ'
+      }
+      
+      this.notification = {
+        show: true,
+        message,
+        type,
+        icon: icons[type] || '✓'
+      }
+      
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        this.hideNotification()
+      }, 4000)
+    },
+    
+    hideNotification() {
+      this.notification.show = false
+    },
+
     async addMedicine() {
       try {
+        const medicineName = this.newMedicine.name
         const response = await fetch('/api/medicines', {
           method: 'POST',
           headers: {
@@ -531,11 +626,22 @@ export default {
         
         if (response.ok) {
           this.newMedicine = { name: '', frequency: '', scheduleType: '', customTimes: [], presetTimes: '' }
+          
+          // Refresh all data
+          await Promise.all([
+            this.loadMedicines(),
+            this.loadAllMedicines(),
+            this.loadStats()
+          ])
+          
+          this.showNotification(`Medicine "${medicineName}" added successfully!`, 'success')
           this.currentView = 'today'
-          await this.loadMedicines()
+        } else {
+          this.showNotification('Failed to add medicine. Please try again.', 'error')
         }
       } catch (error) {
         console.error('Error adding medicine:', error)
+        this.showNotification('Error adding medicine. Please check your connection.', 'error')
       }
     },
     
@@ -616,54 +722,126 @@ export default {
     
     async archiveMedicine(medicineId) {
       try {
+        const medicine = this.activeMedicines.find(m => m.id === medicineId)
+        const medicineName = medicine ? medicine.name : 'Medicine'
+        
         const response = await fetch(`/api/medicines/${medicineId}/archive`, {
           method: 'PUT'
         })
         
         if (response.ok) {
-          await this.loadAllMedicines()
-          await this.loadMedicines()
-          await this.loadStats()
+          await Promise.all([
+            this.loadAllMedicines(),
+            this.loadMedicines(),
+            this.loadStats()
+          ])
+          
+          this.showNotification(`"${medicineName}" has been archived successfully!`, 'success')
+        } else {
+          this.showNotification('Failed to archive medicine. Please try again.', 'error')
         }
       } catch (error) {
         console.error('Error archiving medicine:', error)
+        this.showNotification('Error archiving medicine. Please check your connection.', 'error')
       }
     },
     
     async reactivateMedicine(medicineId) {
       try {
+        const medicine = this.archivedMedicines.find(m => m.id === medicineId)
+        const medicineName = medicine ? medicine.name : 'Medicine'
+        
         const response = await fetch(`/api/medicines/${medicineId}/reactivate`, {
           method: 'PUT'
         })
         
         if (response.ok) {
-          await this.loadAllMedicines()
-          await this.loadMedicines()
-          await this.loadStats()
+          await Promise.all([
+            this.loadAllMedicines(),
+            this.loadMedicines(),
+            this.loadStats()
+          ])
+          
+          this.showNotification(`"${medicineName}" has been reactivated successfully!`, 'success')
+        } else {
+          this.showNotification('Failed to reactivate medicine. Please try again.', 'error')
         }
       } catch (error) {
         console.error('Error reactivating medicine:', error)
+        this.showNotification('Error reactivating medicine. Please check your connection.', 'error')
       }
     },
     
+    showConfirmDialog(options) {
+      this.confirmDialog = {
+        show: true,
+        title: options.title || 'Confirm Action',
+        message: options.message || 'Are you sure?',
+        medicineName: options.medicineName || '',
+        details: options.details || [],
+        warning: options.warning || '',
+        type: options.type || 'danger',
+        icon: options.icon || '⚠️',
+        confirmText: options.confirmText || 'Confirm',
+        cancelText: options.cancelText || 'Cancel',
+        onConfirm: options.onConfirm || null
+      }
+    },
+    
+    cancelConfirm() {
+      this.confirmDialog.show = false
+      this.confirmDialog.onConfirm = null
+    },
+    
+    confirmAction() {
+      if (this.confirmDialog.onConfirm) {
+        this.confirmDialog.onConfirm()
+      }
+      this.cancelConfirm()
+    },
+
     async deleteMedicine(medicineId) {
-      if (!confirm('Are you sure you want to permanently delete this medicine? This action cannot be undone.')) {
-        return
-      }
+      const medicine = this.archivedMedicines.find(m => m.id === medicineId)
+      const medicineName = medicine ? medicine.name : 'Medicine'
       
-      try {
-        const response = await fetch(`/api/medicines/${medicineId}`, {
-          method: 'DELETE'
-        })
-        
-        if (response.ok) {
-          await this.loadAllMedicines()
-          await this.loadMedicines()
-          await this.loadStats()
+      // Show beautiful custom confirmation dialog
+      this.showConfirmDialog({
+        title: 'Delete Medicine Permanently?',
+        message: 'This action will permanently remove all data associated with this medicine.',
+        medicineName: medicineName,
+        details: [
+          'The medicine record',
+          'All dose history',
+          'All statistics data'
+        ],
+        warning: 'This action cannot be undone!',
+        type: 'danger',
+        icon: '🗑️',
+        confirmText: 'Delete Permanently',
+        cancelText: 'Keep Medicine',
+        onConfirm: async () => {
+          try {
+            const response = await fetch(`/api/medicines/${medicineId}`, {
+              method: 'DELETE'
+            })
+            
+            if (response.ok) {
+              await Promise.all([
+                this.loadAllMedicines(),
+                this.loadMedicines(),
+                this.loadStats()
+              ])
+              
+              this.showNotification(`"${medicineName}" has been permanently deleted.`, 'warning')
+            } else {
+              this.showNotification('Failed to delete medicine. Please try again.', 'error')
+            }
+          } catch (error) {
+            console.error('Error deleting medicine:', error)
+            this.showNotification('Error deleting medicine. Please check your connection.', 'error')
+          }
         }
-      } catch (error) {
-        console.error('Error deleting medicine:', error)
-      }
+      })
     },
     
     formatCreatedDate(dateStr) {

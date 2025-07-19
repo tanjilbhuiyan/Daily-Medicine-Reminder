@@ -8,14 +8,24 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const app = express()
-const PORT = 3001
+const PORT = process.env.PORT || 3001
+const NODE_ENV = process.env.NODE_ENV || 'development'
 
 // Middleware
 app.use(cors())
 app.use(express.json())
 
+// Serve static files in production
+if (NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '..', 'dist')
+  app.use(express.static(distPath))
+}
+
 // Initialize SQLite database
-const db = new sqlite3.Database(path.join(__dirname, 'medicines.db'))
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? path.join('/app/data', 'medicines.db')
+  : path.join(__dirname, 'medicines.db')
+const db = new sqlite3.Database(dbPath)
 
 // Initialize database tables
 db.serialize(() => {
@@ -427,6 +437,14 @@ app.delete('/api/medicines/:id', (req, res) => {
   })
 })
 
+// Serve frontend in production
+if (NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'))
+  })
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
+  console.log(`Environment: ${NODE_ENV}`)
 })
