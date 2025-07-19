@@ -1,0 +1,653 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f5f5f5;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.nav-tab:hover {
+  color: #007bff;
+  background-color: #f8f9fa;
+}
+
+.nav-tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  font-weight: bold;
+}
+
+.view-content {
+  min-height: 400px;
+}
+
+/* Date Navigation */
+.date-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.date-nav-btn {
+  background-color: #007bff;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.date-nav-btn:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.date-nav-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Medicine List */
+.medicine-list {
+  margin-top: 20px;
+}
+
+.medicine-item {
+  background: #f8f9fa;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.medicine-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.schedule-info {
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.doses {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.dose-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.dose-item.taken {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.dose-checkbox {
+  width: auto;
+}
+
+.no-medicines, .no-stats {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+/* Calendar Styles */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.month-nav-btn {
+  background-color: #007bff;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.month-nav-btn:hover {
+  background-color: #0056b3;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: #dee2e6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.calendar-day-header {
+  background-color: #007bff;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.calendar-day {
+  background-color: white;
+  min-height: 80px;
+  padding: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.calendar-day:hover {
+  background-color: #f8f9fa;
+}
+
+.calendar-day.other-month {
+  background-color: #f8f9fa;
+  color: #6c757d;
+}
+
+.calendar-day.today {
+  background-color: #e3f2fd;
+  border: 2px solid #007bff;
+}
+
+.calendar-day.selected {
+  background-color: #007bff;
+  color: white;
+}
+
+.day-number {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.day-progress {
+  margin-top: 5px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.progress-bar.large {
+  height: 12px;
+  margin-bottom: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #28a745;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+}
+
+/* Statistics Styles */
+.stats-period {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.period-btn {
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #dee2e6;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.period-btn.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.period-btn:hover:not(.active) {
+  background-color: #e9ecef;
+}
+
+.medicine-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stat-item {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.stat-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.stat-summary {
+  color: #666;
+  font-weight: bold;
+}
+
+.stat-progress {
+  margin-bottom: 15px;
+}
+
+.stat-details {
+  display: flex;
+  gap: 20px;
+  color: #666;
+}
+
+.stat-details p {
+  margin: 0;
+}
+
+/* Preset Times Styles */
+.preset-times {
+  margin-bottom: 10px;
+}
+
+.preset-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #f8f9fa;
+}
+
+.preset-option:hover {
+  border-color: #007bff;
+  background-color: #e3f2fd;
+}
+
+.preset-option.selected {
+  border-color: #007bff;
+  background-color: #e3f2fd;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+.preset-option input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+.preset-option label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+}
+
+.preset-option.selected label {
+  color: #007bff;
+  font-weight: bold;
+}
+
+/* Custom Times Styles */
+.custom-times {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.time-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.time-input-group label {
+  min-width: 80px;
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.time-input {
+  flex: 1;
+  max-width: 150px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.time-help {
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
+  margin-top: 5px;
+}
+
+/* Update schedule info display for custom times */
+.schedule-info .custom-times-display {
+  color: #007bff;
+  font-weight: bold;
+}
+
+/* Medicines Page Styles */
+.medicines-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.medicines-tab-btn {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.medicines-tab-btn:hover {
+  color: #007bff;
+  background-color: #f8f9fa;
+}
+
+.medicines-tab-btn.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  font-weight: bold;
+}
+
+.medicines-section {
+  margin-top: 20px;
+}
+
+.medicines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.medicine-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.medicine-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.medicine-card.archived {
+  background: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.medicine-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.medicine-card-name {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.medicine-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.medicine-status.active {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.medicine-status.archived {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.medicine-card-info {
+  margin-bottom: 20px;
+}
+
+.medicine-card-info p {
+  margin: 8px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.medicine-card-info strong {
+  color: #333;
+}
+
+.medicine-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-archive, .btn-reactivate, .btn-delete {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-archive {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.btn-archive:hover {
+  background-color: #e0a800;
+}
+
+.btn-reactivate {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-reactivate:hover {
+  background-color: #218838;
+}
+
+.btn-delete {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-delete:hover {
+  background-color: #c82333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    margin: 10px;
+    padding: 15px;
+  }
+  
+  .nav-tabs {
+    flex-wrap: wrap;
+  }
+  
+  .date-navigation {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .calendar-day {
+    min-height: 60px;
+    padding: 4px;
+  }
+  
+  .stat-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .stat-details {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .time-input-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .time-input-group label {
+    min-width: auto;
+  }
+  
+  .time-input {
+    max-width: 100%;
+  }
+  
+  .medicines-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .medicines-tabs {
+    flex-direction: column;
+  }
+  
+  .medicine-card-actions {
+    flex-direction: column;
+  }
+}
