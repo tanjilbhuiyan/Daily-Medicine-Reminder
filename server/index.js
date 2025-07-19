@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename)
 const app = express()
 
 // Environment configuration with secure defaults
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3000
 const NODE_ENV = process.env.NODE_ENV || 'development'
 const MAX_REQUEST_SIZE = process.env.MAX_REQUEST_SIZE || '1mb'
 
@@ -36,19 +36,7 @@ const MAX_REQUEST_SIZE = process.env.MAX_REQUEST_SIZE || '1mb'
 
 // Security headers middleware - protects against common vulnerabilities
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allow inline scripts for Vite build
-      imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-    },
-  },
+  contentSecurityPolicy: false, // Completely disable CSP
   crossOriginEmbedderPolicy: false // Allow embedding for development
 }))
 
@@ -68,7 +56,7 @@ app.use('/api/', limiter)
 // CORS configuration - secure cross-origin requests
 const corsOptions = {
   origin: NODE_ENV === 'production' 
-    ? process.env.ALLOWED_ORIGINS?.split(',') || false // Only allow specific origins in production
+    ? process.env.ALLOWED_ORIGINS?.split(',') || ['http://192.168.1.274:3000', 'http://localhost:3000'] // Allow local server access
     : true, // Allow all origins in development
   credentials: true,
   optionsSuccessStatus: 200,
