@@ -111,6 +111,127 @@ h1 {
   margin-top: 8px;
 }
 
+/* New Statistics Styles */
+.stats-description {
+  color: #666;
+  margin-bottom: 25px;
+  font-style: italic;
+  text-align: center;
+}
+
+.stat-item.archived {
+  opacity: 0.8;
+  background-color: #f8f9fa;
+}
+
+.stat-title-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.stat-title-section h3 {
+  margin: 0;
+  flex: 1;
+}
+
+.stat-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.stat-status.active {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.stat-status.archived {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.stat-timeline {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.timeline-item {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-detail {
+  color: #888;
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+.stat-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.stat-detail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.stat-value.taken {
+  color: #28a745;
+}
+
+.stat-value.missed {
+  color: #dc3545;
+}
+
+.stat-value.excellent {
+  color: #28a745;
+}
+
+.stat-value.good {
+  color: #ffc107;
+}
+
+.stat-value.fair {
+  color: #fd7e14;
+}
+
+.stat-value.poor {
+  color: #dc3545;
+}
+
 .go-to-today {
   margin-top: 8px;
 }

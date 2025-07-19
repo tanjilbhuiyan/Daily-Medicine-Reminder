@@ -742,44 +742,33 @@ app.get('/api/calendar/:year/:month', calendarValidation, handleValidationErrors
 
 /**
  * GET /api/stats
- * Get medicine adherence statistics for a specific period
+ * Get comprehensive lifetime statistics for each medicine
  * 
- * Query Parameters:
- * - period (optional): 'week' or 'month', defaults to 'week'
+ * Returns: Array of medicine statistics with complete history from creation to now/archive
  * 
- * Returns: Array of medicine statistics with adherence percentages
- * 
- * Security: Input validation, SQL injection protection
+ * Security: SQL injection protection via parameterized queries
  */
-app.get('/api/stats', statsValidation, handleValidationErrors, (req, res) => {
-  const period = req.query.period || 'week'
-  const today = new Date()
-  let startDate
-
-  if (period === 'week') {
-    const weekStart = new Date(today)
-    weekStart.setDate(today.getDate() - today.getDay()) // Start of week (Sunday)
-    startDate = weekStart.toISOString().split('T')[0]
-  } else {
-    // Month
-    startDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-01`
-  }
-
-  const endDate = today.toISOString().split('T')[0]
+app.get('/api/stats', (req, res) => {
+  const today = getTodayString()
 
   db.all(`
     SELECT 
       m.id,
       m.name,
       m.frequency,
+      m.created_at,
+      m.archived,
+      m.archived_at,
       COUNT(d.id) as total_doses,
-      SUM(d.taken) as taken_doses
+      SUM(d.taken) as taken_doses,
+      MIN(d.date) as first_dose_date,
+      MAX(d.date) as last_dose_date
     FROM medicines m
     LEFT JOIN doses d ON m.id = d.medicine_id 
-      AND d.date >= ? AND d.date <= ?
-    GROUP BY m.id, m.name, m.frequency
-    ORDER BY m.name
-  `, [startDate, endDate], (err, rows) => {
+      AND d.date <= ?
+    GROUP BY m.id, m.name, m.frequency, m.created_at, m.archived, m.archived_at
+    ORDER BY m.archived ASC, m.created_at DESC
+  `, [today], (err, rows) => {
     if (err) {
       console.error('Database error fetching statistics:', err)
       res.status(500).json({ error: 'Failed to fetch statistics' })
@@ -787,17 +776,48 @@ app.get('/api/stats', statsValidation, handleValidationErrors, (req, res) => {
     }
 
     const stats = rows.map(row => {
-      const taken = row.taken_doses || 0
-      const total = row.total_doses || 0
-      const percentage = total > 0 ? Math.round((taken / total) * 100) : 0
+      // Calculate date range
+      const startDate = new Date(row.created_at.split(' ')[0] + 'T00:00:00')
+      const endDate = row.archived 
+        ? new Date(row.archived_at.split(' ')[0] + 'T00:00:00')
+        : new Date(today + 'T00:00:00')
+      
+      // Calculate total days (inclusive)
+      const totalDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+      
+      // Calculate expected doses
+      const expectedDoses = totalDays * row.frequency
+      
+      // Actual data from database
+      const takenDoses = row.taken_doses || 0
+      const totalRecordedDoses = row.total_doses || 0
+      const missedDoses = Math.max(0, expectedDoses - takenDoses)
+      
+      // Calculate adherence percentage
+      const adherencePercentage = expectedDoses > 0 
+        ? Math.round((takenDoses / expectedDoses) * 100) 
+        : 0
+
+      // Calculate streaks (simplified - would need more complex query for accurate streaks)
+      const currentStreak = 0 // TODO: Implement streak calculation
+      const longestStreak = 0 // TODO: Implement streak calculation
 
       return {
         id: row.id,
         name: row.name,
         frequency: row.frequency,
-        taken: taken,
-        total: total,
-        percentage: percentage
+        startDate: row.created_at.split(' ')[0],
+        endDate: row.archived ? row.archived_at.split(' ')[0] : null,
+        status: row.archived ? 'archived' : 'active',
+        totalDays: totalDays,
+        expectedDoses: expectedDoses,
+        takenDoses: takenDoses,
+        missedDoses: missedDoses,
+        adherencePercentage: adherencePercentage,
+        currentStreak: currentStreak,
+        longestStreak: longestStreak,
+        firstDoseDate: row.first_dose_date,
+        lastDoseDate: row.last_dose_date
       }
     })
 

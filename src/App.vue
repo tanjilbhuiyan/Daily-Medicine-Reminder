@@ -316,41 +316,71 @@
 
     <!-- Statistics View -->
     <div v-if="currentView === 'stats'" class="view-content">
-      <h2>Medicine Statistics</h2>
-
-      <div class="stats-period">
-        <button @click="statsPeriod = 'week'" :class="{ active: statsPeriod === 'week' }" class="period-btn">
-          This Week
-        </button>
-        <button @click="statsPeriod = 'month'" :class="{ active: statsPeriod === 'month' }" class="period-btn">
-          This Month
-        </button>
-      </div>
+      <h2>Medicine History & Statistics</h2>
 
       <div class="medicine-stats" v-if="medicineStats.length > 0">
-        <div v-for="stat in medicineStats" :key="stat.id" class="stat-item">
+        <div v-for="stat in medicineStats" :key="stat.id" class="stat-item"
+          :class="{ archived: stat.status === 'archived' }">
           <div class="stat-header">
-            <h3>{{ stat.name }}</h3>
+            <div class="stat-title-section">
+              <h3>{{ stat.name }}</h3>
+              <div class="stat-status" :class="stat.status">
+                {{ stat.status === 'active' ? 'Active' : 'Archived' }}
+              </div>
+            </div>
             <div class="stat-summary">
-              {{ stat.taken }}/{{ stat.total }} doses taken ({{ stat.percentage }}%)
+              {{ stat.takenDoses }}/{{ stat.expectedDoses }} doses taken ({{ stat.adherencePercentage }}%)
+            </div>
+          </div>
+
+          <div class="stat-timeline">
+            <div class="timeline-item">
+              <strong>Started:</strong> {{ formatStatDate(stat.startDate) }}
+              <span class="timeline-detail">({{ stat.totalDays }} {{ stat.totalDays === 1 ? 'day' : 'days' }})</span>
+            </div>
+            <div v-if="stat.status === 'archived'" class="timeline-item">
+              <strong>Archived:</strong> {{ formatStatDate(stat.endDate) }}
+            </div>
+            <div class="timeline-item">
+              <strong>Frequency:</strong> {{ stat.frequency }} {{ stat.frequency === 1 ? 'dose' : 'doses' }} per day
             </div>
           </div>
 
           <div class="stat-progress">
             <div class="progress-bar large">
-              <div class="progress-fill" :style="{ width: stat.percentage + '%' }"></div>
+              <div class="progress-fill" :style="{
+                width: stat.adherencePercentage + '%',
+                backgroundColor: getAdherenceColor(stat.adherencePercentage)
+              }"></div>
             </div>
           </div>
 
           <div class="stat-details">
-            <p>Expected: {{ stat.total }} doses</p>
-            <p>Taken: {{ stat.taken }} doses</p>
-            <p>Missed: {{ stat.total - stat.taken }} doses</p>
+            <div class="stat-detail-grid">
+              <div class="stat-detail-item">
+                <span class="stat-label">Expected:</span>
+                <span class="stat-value">{{ stat.expectedDoses }} doses</span>
+              </div>
+              <div class="stat-detail-item">
+                <span class="stat-label">Taken:</span>
+                <span class="stat-value taken">{{ stat.takenDoses }} doses</span>
+              </div>
+              <div class="stat-detail-item">
+                <span class="stat-label">Missed:</span>
+                <span class="stat-value missed">{{ stat.missedDoses }} doses</span>
+              </div>
+              <div class="stat-detail-item">
+                <span class="stat-label">Adherence:</span>
+                <span class="stat-value" :class="getAdherenceClass(stat.adherencePercentage)">
+                  {{ stat.adherencePercentage }}%
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       <div v-else class="no-stats">
-        <p>No statistics available yet. Start taking your medicines to see progress!</p>
+        <p>No medicine statistics available yet. Add some medicines to start tracking!</p>
       </div>
     </div>
   </div>
@@ -369,7 +399,7 @@ export default {
       calendarDate: new Date(),
       calendarData: {},
       medicineStats: [],
-      statsPeriod: 'week',
+
       newMedicine: {
         name: '',
         frequency: '',
@@ -531,7 +561,7 @@ export default {
 
     async loadStats() {
       try {
-        const response = await fetch(`/api/stats?period=${this.statsPeriod}`)
+        const response = await fetch('/api/stats')
         this.medicineStats = await response.json()
       } catch (error) {
         console.error('Error loading stats:', error)
@@ -800,25 +830,19 @@ export default {
       this.cancelConfirm()
     },
 
-    async deleteMedicine(medicineId) {
+    deleteMedicine(medicineId) {
       const medicine = this.archivedMedicines.find(m => m.id === medicineId)
-      const medicineName = medicine ? medicine.name : 'Medicine'
+      if (!medicine) return
 
-      // Show beautiful custom confirmation dialog
       this.showConfirmDialog({
-        title: 'Delete Medicine Permanently?',
-        message: 'This action will permanently remove all data associated with this medicine.',
-        medicineName: medicineName,
-        details: [
-          'The medicine record',
-          'All dose history',
-          'All statistics data'
-        ],
+        title: 'Delete Medicine',
+        message: 'Are you sure you want to permanently delete this medicine?',
+        medicineName: medicine.name,
+        details: ['All dose history', 'All statistics data'],
         warning: 'This action cannot be undone!',
         type: 'danger',
         icon: '🗑️',
         confirmText: 'Delete Permanently',
-        cancelText: 'Keep Medicine',
         onConfirm: async () => {
           try {
             const response = await fetch(`/api/medicines/${medicineId}`, {
@@ -832,7 +856,7 @@ export default {
                 this.loadStats()
               ])
 
-              this.showNotification(`"${medicineName}" has been permanently deleted.`, 'warning')
+              this.showNotification(`"${medicine.name}" has been permanently deleted.`, 'success')
             } else {
               this.showNotification('Failed to delete medicine. Please try again.', 'error')
             }
@@ -852,6 +876,31 @@ export default {
         month: 'short',
         day: 'numeric'
       })
+    },
+
+    // New methods for statistics
+    formatStatDate(dateStr) {
+      if (!dateStr) return 'Unknown'
+      const date = new Date(dateStr + 'T00:00:00')
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    },
+
+    getAdherenceColor(percentage) {
+      if (percentage >= 90) return '#28a745' // Green - Excellent
+      if (percentage >= 75) return '#ffc107' // Yellow - Good
+      if (percentage >= 50) return '#fd7e14' // Orange - Fair
+      return '#dc3545' // Red - Poor
+    },
+
+    getAdherenceClass(percentage) {
+      if (percentage >= 90) return 'excellent'
+      if (percentage >= 75) return 'good'
+      if (percentage >= 50) return 'fair'
+      return 'poor'
     }
   }
 }
