@@ -232,8 +232,16 @@ function isValidDateString(dateStr) {
   const regex = /^\d{4}-\d{2}-\d{2}$/
   if (!regex.test(dateStr)) return false
   
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toISOString().split('T')[0] === dateStr
+  // Use UTC to avoid timezone issues
+  const parts = dateStr.split('-')
+  const year = parseInt(parts[0])
+  const month = parseInt(parts[1]) - 1 // Month is 0-indexed
+  const day = parseInt(parts[2])
+  
+  const date = new Date(Date.UTC(year, month, day))
+  const reconstructed = date.toISOString().split('T')[0]
+  
+  return reconstructed === dateStr
 }
 
 /**
@@ -347,14 +355,98 @@ const statsValidation = [
  */
 app.get('/api/medicines', dateValidation, handleValidationErrors, (req, res) => {
   const date = req.query.date || getTodayString()
+  const today = getTodayString()
 
+  // First, ensure we have doses for today for all active medicines
+  if (date === today) {
+    ensureTodayDoses().then(() => {
+      fetchMedicinesForDate(date, res)
+    }).catch(err => {
+      console.error('Error ensuring today doses:', err)
+      fetchMedicinesForDate(date, res)
+    })
+  } else {
+    fetchMedicinesForDate(date, res)
+  }
+})
+
+/**
+ * Ensure all active medicines have dose records for today
+ */
+function ensureTodayDoses() {
+  return new Promise((resolve, reject) => {
+    const today = getTodayString()
+    
+    // Get all active medicines
+    db.all(`
+      SELECT * FROM medicines WHERE archived = 0
+    `, [], (err, medicines) => {
+      if (err) {
+        reject(err)
+        return
+      }
+
+      const promises = medicines.map(medicine => {
+        return new Promise((resolveMedicine) => {
+          const expectedLabels = generateTimeLabels(
+            medicine.frequency, 
+            medicine.schedule_type, 
+            medicine.custom_times, 
+            medicine.preset_times
+          )
+
+          // Check which doses already exist for today
+          db.all(`
+            SELECT time_label FROM doses 
+            WHERE medicine_id = ? AND date = ?
+          `, [medicine.id, today], (err, existingDoses) => {
+            if (err) {
+              resolveMedicine()
+              return
+            }
+
+            const existingLabels = existingDoses.map(d => d.time_label)
+            const missingLabels = expectedLabels.filter(label => !existingLabels.includes(label))
+
+            if (missingLabels.length === 0) {
+              resolveMedicine()
+              return
+            }
+
+            // Create missing doses
+            let createdCount = 0
+            missingLabels.forEach(label => {
+              db.run(`
+                INSERT INTO doses (medicine_id, time_label, taken, date)
+                VALUES (?, ?, 0, ?)
+              `, [medicine.id, label, today], () => {
+                createdCount++
+                if (createdCount === missingLabels.length) {
+                  resolveMedicine()
+                }
+              })
+            })
+          })
+        })
+      })
+
+      Promise.all(promises).then(resolve).catch(reject)
+    })
+  })
+}
+
+/**
+ * Fetch medicines and doses for a specific date
+ */
+function fetchMedicinesForDate(date, res) {
   db.all(`
     SELECT m.*, d.id as dose_id, d.time_label, d.taken
     FROM medicines m
     LEFT JOIN doses d ON m.id = d.medicine_id AND d.date = ?
-    WHERE m.archived = 0
+    WHERE m.archived = 0 
+      AND DATE(m.created_at) <= ?
     ORDER BY m.id, d.time_label
-  `, [date], (err, rows) => {
+  `, [date, date], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message })
       return
@@ -387,40 +479,78 @@ app.get('/api/medicines', dateValidation, handleValidationErrors, (req, res) => 
 
     const medicines = Array.from(medicinesMap.values())
 
-    // Create missing doses for the requested date
-    const promises = []
-    medicines.forEach(medicine => {
-      const expectedLabels = generateTimeLabels(medicine.frequency, medicine.schedule_type, medicine.custom_times, medicine.preset_times)
-      const existingLabels = medicine.doses.map(d => d.time_label)
+    // Ensure all medicines have their expected doses, but only for valid dates
+    const today = getTodayString()
+    
+    if (date === today) {
+      // For today only, create missing doses in database
+      const promises = []
+      medicines.forEach(medicine => {
+        const expectedLabels = generateTimeLabels(medicine.frequency, medicine.schedule_type, medicine.custom_times, medicine.preset_times)
+        const existingLabels = medicine.doses.map(d => d.time_label)
 
-      expectedLabels.forEach(label => {
-        if (!existingLabels.includes(label)) {
-          // Create missing dose
-          const promise = new Promise((resolve) => {
-            db.run(`
-              INSERT INTO doses (medicine_id, time_label, taken, date)
-              VALUES (?, ?, 0, ?)
-            `, [medicine.id, label, date], function (err) {
-              if (!err) {
-                medicine.doses.push({
-                  id: this.lastID,
-                  time_label: label,
-                  taken: false
-                })
-              }
-              resolve()
+        expectedLabels.forEach(label => {
+          if (!existingLabels.includes(label)) {
+            // Create missing dose
+            const promise = new Promise((resolve) => {
+              db.run(`
+                INSERT INTO doses (medicine_id, time_label, taken, date)
+                VALUES (?, ?, 0, ?)
+              `, [medicine.id, label, date], function (err) {
+                if (!err) {
+                  medicine.doses.push({
+                    id: this.lastID,
+                    time_label: label,
+                    taken: false
+                  })
+                }
+                resolve()
+              })
             })
-          })
-          promises.push(promise)
-        }
+            promises.push(promise)
+          }
+        })
       })
-    })
 
-    Promise.all(promises).then(() => {
+      Promise.all(promises).then(() => {
+        res.json(medicines)
+      })
+    } else {
+      // For past dates, add missing doses as virtual (not saved to database)
+      medicines.forEach(medicine => {
+        const expectedLabels = generateTimeLabels(medicine.frequency, medicine.schedule_type, medicine.custom_times, medicine.preset_times)
+        const existingLabels = medicine.doses.map(d => d.time_label)
+
+        expectedLabels.forEach(label => {
+          if (!existingLabels.includes(label)) {
+            // Add virtual dose for past date (not taken, no database ID)
+            medicine.doses.push({
+              id: `virtual-${medicine.id}-${label}`, // Virtual ID for past dates
+              time_label: label,
+              taken: false
+            })
+          }
+        })
+        
+        // Sort doses by time label for consistent display
+        medicine.doses.sort((a, b) => {
+          const timeOrder = ['Morning', 'Noon', 'Evening', 'Night']
+          const aIndex = timeOrder.indexOf(a.time_label)
+          const bIndex = timeOrder.indexOf(b.time_label)
+          
+          if (aIndex !== -1 && bIndex !== -1) {
+            return aIndex - bIndex
+          }
+          
+          // For custom times, sort alphabetically
+          return a.time_label.localeCompare(b.time_label)
+        })
+      })
+      
       res.json(medicines)
-    })
+    }
   })
-})
+}
 
 /**
  * POST /api/medicines
@@ -521,27 +651,46 @@ app.post('/api/medicines', medicineValidation, handleValidationErrors, (req, res
  * 
  * Returns: Success message
  * 
- * Security: Input validation, SQL injection protection
+ * Security: Input validation, SQL injection protection, prevents editing past dates
  */
 app.put('/api/doses/:id', doseValidation, handleValidationErrors, (req, res) => {
   const { id } = req.params
   const { taken } = req.body
+  const today = getTodayString()
 
-  db.run(`
-    UPDATE doses SET taken = ? WHERE id = ?
-  `, [taken ? 1 : 0, parseInt(id)], function (err) {
+  // First check if this dose exists and get its date
+  db.get(`
+    SELECT date FROM doses WHERE id = ?
+  `, [parseInt(id)], (err, row) => {
     if (err) {
-      console.error('Database error updating dose:', err)
-      res.status(500).json({ error: 'Failed to update dose' })
+      console.error('Database error checking dose:', err)
+      res.status(500).json({ error: 'Failed to check dose' })
       return
     }
 
-    if (this.changes === 0) {
+    if (!row) {
       res.status(404).json({ error: 'Dose not found' })
       return
     }
 
-    res.json({ message: 'Dose updated successfully' })
+    // Prevent editing doses from past dates (only allow today and future)
+    if (row.date < today) {
+      res.status(403).json({ error: 'Cannot modify doses from past dates' })
+      return
+    }
+
+    // Update the dose
+    db.run(`
+      UPDATE doses SET taken = ? WHERE id = ?
+    `, [taken ? 1 : 0, parseInt(id)], function (err) {
+      if (err) {
+        console.error('Database error updating dose:', err)
+        res.status(500).json({ error: 'Failed to update dose' })
+        return
+      }
+
+      res.json({ message: 'Dose updated successfully' })
+    })
   })
 })
 

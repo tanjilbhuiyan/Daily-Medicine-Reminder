@@ -70,6 +70,67 @@ h1 {
   border-radius: 6px;
 }
 
+.date-info {
+  text-align: center;
+  flex: 1;
+}
+
+.date-info h2 {
+  margin: 0 0 8px 0;
+}
+
+.past-date-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #856404;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  padding: 4px 12px;
+  margin-top: 8px;
+}
+
+.warning-icon {
+  font-size: 16px;
+}
+
+.future-date-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 4px 12px;
+  margin-top: 8px;
+}
+
+.go-to-today {
+  margin-top: 8px;
+}
+
+.btn-today {
+  background-color: #007bff;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-today:hover {
+  background-color: #0056b3;
+}
+
 .date-nav-btn {
   background-color: #007bff;
   color: white;
@@ -167,6 +228,41 @@ button:hover {
 .dose-item.taken {
   background-color: #d4edda;
   border-color: #c3e6cb;
+}
+
+.dose-item.past-date {
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+  opacity: 0.8;
+}
+
+.dose-item.past-date.taken {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+}
+
+.dose-item.disabled {
+  cursor: not-allowed;
+}
+
+.dose-item.disabled .dose-checkbox {
+  cursor: not-allowed;
+}
+
+.dose-item.future-date {
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+  opacity: 0.6;
+}
+
+.dose-item.future-date .dose-checkbox {
+  cursor: not-allowed;
+}
+
+.missed-indicator {
+  color: #dc3545;
+  font-weight: bold;
+  font-size: 14px;
 }
 
 .dose-checkbox {

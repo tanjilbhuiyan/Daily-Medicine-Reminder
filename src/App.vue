@@ -32,28 +32,28 @@
           </div>
           <h3 class="modal-title">{{ confirmDialog.title }}</h3>
         </div>
-        
+
         <div class="modal-body">
           <div class="modal-medicine-info" v-if="confirmDialog.medicineName">
             <strong>Medicine:</strong> "{{ confirmDialog.medicineName }}"
           </div>
-          
+
           <div class="modal-message">
             {{ confirmDialog.message }}
           </div>
-          
+
           <div class="modal-details" v-if="confirmDialog.details && confirmDialog.details.length > 0">
             <p><strong>This will permanently delete:</strong></p>
             <ul>
               <li v-for="detail in confirmDialog.details" :key="detail">{{ detail }}</li>
             </ul>
           </div>
-          
+
           <div class="modal-warning" v-if="confirmDialog.warning">
             <strong>⚠️ {{ confirmDialog.warning }}</strong>
           </div>
         </div>
-        
+
         <div class="modal-footer">
           <button @click="cancelConfirm" class="btn-cancel">
             {{ confirmDialog.cancelText || 'Cancel' }}
@@ -66,42 +66,22 @@
     </div>
 
     <h1>Daily Medicine Reminder</h1>
-    
+
     <!-- Navigation Tabs -->
     <div class="nav-tabs">
-      <button 
-        @click="currentView = 'today'" 
-        :class="{ active: currentView === 'today' }"
-        class="nav-tab"
-      >
+      <button @click="currentView = 'today'" :class="{ active: currentView === 'today' }" class="nav-tab">
         Today
       </button>
-      <button 
-        @click="currentView = 'medicines'" 
-        :class="{ active: currentView === 'medicines' }"
-        class="nav-tab"
-      >
+      <button @click="currentView = 'medicines'" :class="{ active: currentView === 'medicines' }" class="nav-tab">
         Medicines
       </button>
-      <button 
-        @click="currentView = 'calendar'" 
-        :class="{ active: currentView === 'calendar' }"
-        class="nav-tab"
-      >
+      <button @click="currentView = 'calendar'" :class="{ active: currentView === 'calendar' }" class="nav-tab">
         Calendar
       </button>
-      <button 
-        @click="currentView = 'stats'" 
-        :class="{ active: currentView === 'stats' }"
-        class="nav-tab"
-      >
+      <button @click="currentView = 'stats'" :class="{ active: currentView === 'stats' }" class="nav-tab">
         Statistics
       </button>
-      <button 
-        @click="currentView = 'add'" 
-        :class="{ active: currentView === 'add' }"
-        class="nav-tab"
-      >
+      <button @click="currentView = 'add'" :class="{ active: currentView === 'add' }" class="nav-tab">
         Add Medicine
       </button>
     </div>
@@ -110,10 +90,23 @@
     <div v-if="currentView === 'today'" class="view-content">
       <div class="date-navigation">
         <button @click="changeDate(-1)" class="date-nav-btn">← Previous Day</button>
-        <h2>{{ formatDate(selectedDate) }}</h2>
+        <div class="date-info">
+          <h2>{{ formatDate(selectedDate) }}</h2>
+          <div v-if="isPastDate" class="past-date-warning">
+            <span class="warning-icon">🔒</span>
+            <span>Past records are read-only</span>
+          </div>
+          <div v-if="isFutureDate" class="future-date-warning">
+            <span class="warning-icon">🚫</span>
+            <span>Future dates are not accessible</span>
+          </div>
+          <div v-if="!isToday" class="go-to-today">
+            <button @click="goToToday" class="btn-today">Go to Today</button>
+          </div>
+        </div>
         <button @click="changeDate(1)" class="date-nav-btn" :disabled="isToday">Next Day →</button>
       </div>
-      
+
       <div class="medicine-list" v-if="medicines.length > 0">
         <div v-for="medicine in medicines" :key="medicine.id" class="medicine-item">
           <div class="medicine-name">{{ medicine.name }}</div>
@@ -123,48 +116,40 @@
             <span v-else-if="medicine.schedule_type === 'custom'" class="custom-times-display"> - Custom times</span>
             <span v-else> - Every {{ 24 / medicine.frequency }} hours</span>
           </div>
-          
-          <div class="doses">
-            <div 
-              v-for="dose in medicine.doses" 
-              :key="dose.id"
-              class="dose-item"
-              :class="{ taken: dose.taken }"
-            >
-              <input 
-                type="checkbox" 
-                :checked="dose.taken"
-                @change="toggleDose(dose.id, $event.target.checked)"
-                class="dose-checkbox"
-              />
+
+          <div class="doses" v-if="medicine.doses && medicine.doses.length > 0">
+            <div v-for="dose in medicine.doses" :key="dose.id" class="dose-item" :class="{
+              taken: dose.taken,
+              disabled: isPastDate || isFutureDate,
+              'past-date': isPastDate,
+              'future-date': isFutureDate
+            }">
+              <input type="checkbox" :checked="dose.taken" @change="toggleDose(dose.id, $event.target.checked)"
+                :disabled="isPastDate || isFutureDate" class="dose-checkbox" />
               <span>{{ dose.time_label }}</span>
               <span v-if="dose.taken" style="color: green;">✓</span>
+              <span v-if="isPastDate && !dose.taken" class="missed-indicator" title="Missed dose">✗</span>
             </div>
           </div>
         </div>
       </div>
       <div v-else class="no-medicines">
-        <p>No medicines added yet. Go to "Add Medicine" tab to get started.</p>
+        <p v-if="isPastDate">No medicine records found for this date.</p>
+        <p v-else>No medicines added yet. Go to "Add Medicine" tab to get started.</p>
       </div>
     </div>
 
     <!-- Medicines View -->
     <div v-if="currentView === 'medicines'" class="view-content">
       <h2>Manage Medicines</h2>
-      
+
       <div class="medicines-tabs">
-        <button 
-          @click="medicinesTab = 'active'" 
-          :class="{ active: medicinesTab === 'active' }"
-          class="medicines-tab-btn"
-        >
+        <button @click="medicinesTab = 'active'" :class="{ active: medicinesTab === 'active' }"
+          class="medicines-tab-btn">
           Active Medicines ({{ activeMedicines.length }})
         </button>
-        <button 
-          @click="medicinesTab = 'archived'" 
-          :class="{ active: medicinesTab === 'archived' }"
-          class="medicines-tab-btn"
-        >
+        <button @click="medicinesTab = 'archived'" :class="{ active: medicinesTab === 'archived' }"
+          class="medicines-tab-btn">
           Archived Medicines ({{ archivedMedicines.length }})
         </button>
       </div>
@@ -177,23 +162,19 @@
               <h3 class="medicine-card-name">{{ medicine.name }}</h3>
               <div class="medicine-status active">Active</div>
             </div>
-            
+
             <div class="medicine-card-info">
               <p><strong>Frequency:</strong> {{ medicine.frequency }} times per day</p>
-              <p><strong>Schedule:</strong> 
+              <p><strong>Schedule:</strong>
                 <span v-if="medicine.schedule_type === 'preset'">Preset times</span>
                 <span v-else-if="medicine.schedule_type === 'custom'">Custom times</span>
                 <span v-else>Equal intervals</span>
               </p>
               <p><strong>Added:</strong> {{ formatCreatedDate(medicine.created_at) }}</p>
             </div>
-            
+
             <div class="medicine-card-actions">
-              <button 
-                @click="archiveMedicine(medicine.id)" 
-                class="btn-archive"
-                title="Mark as completed/archived"
-              >
+              <button @click="archiveMedicine(medicine.id)" class="btn-archive" title="Mark as completed/archived">
                 Archive Medicine
               </button>
             </div>
@@ -212,31 +193,24 @@
               <h3 class="medicine-card-name">{{ medicine.name }}</h3>
               <div class="medicine-status archived">Archived</div>
             </div>
-            
+
             <div class="medicine-card-info">
               <p><strong>Frequency:</strong> {{ medicine.frequency }} times per day</p>
-              <p><strong>Schedule:</strong> 
+              <p><strong>Schedule:</strong>
                 <span v-if="medicine.schedule_type === 'preset'">Preset times</span>
                 <span v-else-if="medicine.schedule_type === 'custom'">Custom times</span>
                 <span v-else>Equal intervals</span>
               </p>
               <p><strong>Added:</strong> {{ formatCreatedDate(medicine.created_at) }}</p>
-              <p v-if="medicine.archived_at"><strong>Archived:</strong> {{ formatCreatedDate(medicine.archived_at) }}</p>
+              <p v-if="medicine.archived_at"><strong>Archived:</strong> {{ formatCreatedDate(medicine.archived_at) }}
+              </p>
             </div>
-            
+
             <div class="medicine-card-actions">
-              <button 
-                @click="reactivateMedicine(medicine.id)" 
-                class="btn-reactivate"
-                title="Reactivate this medicine"
-              >
+              <button @click="reactivateMedicine(medicine.id)" class="btn-reactivate" title="Reactivate this medicine">
                 Reactivate
               </button>
-              <button 
-                @click="deleteMedicine(medicine.id)" 
-                class="btn-delete"
-                title="Permanently delete this medicine"
-              >
+              <button @click="deleteMedicine(medicine.id)" class="btn-delete" title="Permanently delete this medicine">
                 Delete
               </button>
             </div>
@@ -253,15 +227,9 @@
       <form @submit.prevent="addMedicine" class="add-form">
         <div class="form-group">
           <label for="medicineName">Medicine Name:</label>
-          <input 
-            id="medicineName"
-            v-model="newMedicine.name" 
-            type="text" 
-            required 
-            placeholder="Enter medicine name"
-          />
+          <input id="medicineName" v-model="newMedicine.name" type="text" required placeholder="Enter medicine name" />
         </div>
-        
+
         <div class="form-group">
           <label for="frequency">How many times per day:</label>
           <select id="frequency" v-model="newMedicine.frequency" required>
@@ -272,7 +240,7 @@
             <option value="4">Four times a day</option>
           </select>
         </div>
-        
+
         <div class="form-group" v-if="newMedicine.frequency">
           <label>Schedule Type:</label>
           <select v-model="newMedicine.scheduleType" required>
@@ -288,20 +256,11 @@
           <label>Choose Preset Times:</label>
           <div class="preset-times">
             <div class="preset-options">
-              <div 
-                v-for="option in availablePresetOptions" 
-                :key="option.value"
-                class="preset-option"
+              <div v-for="option in availablePresetOptions" :key="option.value" class="preset-option"
                 :class="{ selected: newMedicine.presetTimes === option.value }"
-                @click="newMedicine.presetTimes = option.value"
-              >
-                <input 
-                  type="radio" 
-                  :value="option.value" 
-                  v-model="newMedicine.presetTimes"
-                  :id="'preset-' + option.value"
-                  required
-                />
+                @click="newMedicine.presetTimes = option.value">
+                <input type="radio" :value="option.value" v-model="newMedicine.presetTimes"
+                  :id="'preset-' + option.value" required />
                 <label :for="'preset-' + option.value">{{ option.label }}</label>
               </div>
             </div>
@@ -313,24 +272,15 @@
         <div v-if="newMedicine.scheduleType === 'custom'" class="form-group">
           <label>Set Custom Times:</label>
           <div class="custom-times">
-            <div 
-              v-for="(time, index) in newMedicine.customTimes" 
-              :key="index"
-              class="time-input-group"
-            >
+            <div v-for="(time, index) in newMedicine.customTimes" :key="index" class="time-input-group">
               <label :for="'time-' + index">Time {{ index + 1 }}:</label>
-              <input 
-                :id="'time-' + index"
-                v-model="newMedicine.customTimes[index]"
-                type="time" 
-                required
-                class="time-input"
-              />
+              <input :id="'time-' + index" v-model="newMedicine.customTimes[index]" type="time" required
+                class="time-input" />
             </div>
           </div>
           <p class="time-help">Set {{ newMedicine.frequency }} time(s) when you need to take this medicine</p>
         </div>
-        
+
         <button type="submit">Add Medicine</button>
       </form>
     </div>
@@ -342,30 +292,21 @@
         <h2>{{ formatMonth(calendarDate) }}</h2>
         <button @click="changeMonth(1)" class="month-nav-btn">Next →</button>
       </div>
-      
+
       <div class="calendar-grid">
         <div class="calendar-day-header" v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day">
           {{ day }}
         </div>
-        
-        <div 
-          v-for="day in calendarDays" 
-          :key="day.date"
-          class="calendar-day"
-          :class="{ 
-            'other-month': !day.currentMonth,
-            'today': day.isToday,
-            'selected': day.date === selectedDate
-          }"
-          @click="selectCalendarDate(day.date)"
-        >
+
+        <div v-for="day in calendarDays" :key="day.date" class="calendar-day" :class="{
+          'other-month': !day.currentMonth,
+          'today': day.isToday,
+          'selected': day.date === selectedDate
+        }" @click="selectCalendarDate(day.date)">
           <div class="day-number">{{ day.dayNumber }}</div>
           <div class="day-progress" v-if="day.currentMonth && day.progress">
             <div class="progress-bar">
-              <div 
-                class="progress-fill" 
-                :style="{ width: day.progress.percentage + '%' }"
-              ></div>
+              <div class="progress-fill" :style="{ width: day.progress.percentage + '%' }"></div>
             </div>
             <div class="progress-text">{{ day.progress.taken }}/{{ day.progress.total }}</div>
           </div>
@@ -376,20 +317,12 @@
     <!-- Statistics View -->
     <div v-if="currentView === 'stats'" class="view-content">
       <h2>Medicine Statistics</h2>
-      
+
       <div class="stats-period">
-        <button 
-          @click="statsPeriod = 'week'" 
-          :class="{ active: statsPeriod === 'week' }"
-          class="period-btn"
-        >
+        <button @click="statsPeriod = 'week'" :class="{ active: statsPeriod === 'week' }" class="period-btn">
           This Week
         </button>
-        <button 
-          @click="statsPeriod = 'month'" 
-          :class="{ active: statsPeriod === 'month' }"
-          class="period-btn"
-        >
+        <button @click="statsPeriod = 'month'" :class="{ active: statsPeriod === 'month' }" class="period-btn">
           This Month
         </button>
       </div>
@@ -402,16 +335,13 @@
               {{ stat.taken }}/{{ stat.total }} doses taken ({{ stat.percentage }}%)
             </div>
           </div>
-          
+
           <div class="stat-progress">
             <div class="progress-bar large">
-              <div 
-                class="progress-fill" 
-                :style="{ width: stat.percentage + '%' }"
-              ></div>
+              <div class="progress-fill" :style="{ width: stat.percentage + '%' }"></div>
             </div>
           </div>
-          
+
           <div class="stat-details">
             <p>Expected: {{ stat.total }} doses</p>
             <p>Taken: {{ stat.taken }} doses</p>
@@ -468,12 +398,20 @@ export default {
       }
     }
   },
-  
+
   computed: {
     isToday() {
       return this.selectedDate === new Date().toISOString().split('T')[0]
     },
-    
+
+    isPastDate() {
+      return this.selectedDate < new Date().toISOString().split('T')[0]
+    },
+
+    isFutureDate() {
+      return this.selectedDate > new Date().toISOString().split('T')[0]
+    },
+
     availablePresetOptions() {
       const frequency = parseInt(this.newMedicine.frequency)
       const allOptions = [
@@ -489,18 +427,18 @@ export default {
         { value: 'morning-noon-evening', label: 'Morning, Noon & Evening', times: ['Morning', 'Noon', 'Evening'] },
         { value: 'morning-noon-evening-night', label: 'Morning, Noon, Evening & Night', times: ['Morning', 'Noon', 'Evening', 'Night'] }
       ]
-      
+
       return allOptions.filter(option => option.times.length === frequency)
     },
-    
+
     activeMedicines() {
       return this.allMedicines.filter(medicine => !medicine.archived)
     },
-    
+
     archivedMedicines() {
       return this.allMedicines.filter(medicine => medicine.archived)
     },
-    
+
     calendarDays() {
       const year = this.calendarDate.getFullYear()
       const month = this.calendarDate.getMonth()
@@ -508,15 +446,15 @@ export default {
       const lastDay = new Date(year, month + 1, 0)
       const startDate = new Date(firstDay)
       startDate.setDate(startDate.getDate() - firstDay.getDay())
-      
+
       const days = []
       const today = new Date().toISOString().split('T')[0]
-      
+
       for (let i = 0; i < 42; i++) {
         const currentDate = new Date(startDate)
         currentDate.setDate(startDate.getDate() + i)
         const dateStr = currentDate.toISOString().split('T')[0]
-        
+
         days.push({
           date: dateStr,
           dayNumber: currentDate.getDate(),
@@ -525,54 +463,61 @@ export default {
           progress: this.calendarData[dateStr] || null
         })
       }
-      
+
       return days
     }
   },
-  
+
   async mounted() {
     await this.loadMedicines()
     await this.loadAllMedicines()
     await this.loadCalendarData()
     await this.loadStats()
   },
-  
+
   watch: {
     selectedDate() {
       this.loadMedicines()
     },
-    
+
     calendarDate() {
       this.loadCalendarData()
     },
-    
+
     statsPeriod() {
       this.loadStats()
     },
-    
+
     'newMedicine.frequency'() {
       if (this.newMedicine.scheduleType === 'custom') {
         this.updateCustomTimes()
       }
     },
-    
+
     'newMedicine.scheduleType'() {
       if (this.newMedicine.scheduleType === 'custom') {
         this.updateCustomTimes()
       }
     }
   },
-  
+
   methods: {
     async loadMedicines() {
       try {
         const response = await fetch(`/api/medicines?date=${this.selectedDate}`)
-        this.medicines = await response.json()
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        this.medicines = data
       } catch (error) {
         console.error('Error loading medicines:', error)
+        this.showNotification('Failed to load medicines. Please refresh the page.', 'error')
       }
     },
-    
+
     async loadCalendarData() {
       try {
         const year = this.calendarDate.getFullYear()
@@ -583,7 +528,7 @@ export default {
         console.error('Error loading calendar data:', error)
       }
     },
-    
+
     async loadStats() {
       try {
         const response = await fetch(`/api/stats?period=${this.statsPeriod}`)
@@ -592,7 +537,7 @@ export default {
         console.error('Error loading stats:', error)
       }
     },
-    
+
     updateCustomTimes() {
       const frequency = parseInt(this.newMedicine.frequency)
       if (frequency > 0) {
@@ -609,20 +554,20 @@ export default {
         warning: '⚠',
         info: 'ℹ'
       }
-      
+
       this.notification = {
         show: true,
         message,
         type,
         icon: icons[type] || '✓'
       }
-      
+
       // Auto-hide after 4 seconds
       setTimeout(() => {
         this.hideNotification()
       }, 4000)
     },
-    
+
     hideNotification() {
       this.notification.show = false
     },
@@ -637,17 +582,17 @@ export default {
           },
           body: JSON.stringify(this.newMedicine)
         })
-        
+
         if (response.ok) {
           this.newMedicine = { name: '', frequency: '', scheduleType: '', customTimes: [], presetTimes: '' }
-          
+
           // Refresh all data
           await Promise.all([
             this.loadMedicines(),
             this.loadAllMedicines(),
             this.loadStats()
           ])
-          
+
           this.showNotification(`Medicine "${medicineName}" added successfully!`, 'success')
           this.currentView = 'today'
         } else {
@@ -658,42 +603,83 @@ export default {
         this.showNotification('Error adding medicine. Please check your connection.', 'error')
       }
     },
-    
+
     async toggleDose(doseId, taken) {
+      // Don't try to update virtual doses (for past dates without records)
+      if (typeof doseId === 'string' && doseId.startsWith('virtual-')) {
+        this.showNotification('Cannot modify doses from past dates', 'warning')
+        return
+      }
+
+      // Don't allow modifications on future dates
+      if (this.isFutureDate) {
+        this.showNotification('Cannot modify doses for future dates', 'warning')
+        return
+      }
+
       try {
-        await fetch(`/api/doses/${doseId}`, {
+        const response = await fetch(`/api/doses/${doseId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ taken })
         })
-        
+
+        if (!response.ok) {
+          const error = await response.json()
+          this.showNotification(error.error || 'Failed to update dose', 'error')
+          return
+        }
+
         await this.loadMedicines()
         await this.loadCalendarData()
         await this.loadStats()
       } catch (error) {
         console.error('Error updating dose:', error)
+        this.showNotification('Error updating dose. Please try again.', 'error')
       }
     },
-    
+
     changeDate(days) {
       const newDate = new Date(this.selectedDate)
       newDate.setDate(newDate.getDate() + days)
-      this.selectedDate = newDate.toISOString().split('T')[0]
+      const newDateStr = newDate.toISOString().split('T')[0]
+      const today = new Date().toISOString().split('T')[0]
+
+      // Prevent navigation to future dates
+      if (newDateStr > today) {
+        this.showNotification('Cannot navigate to future dates', 'warning')
+        return
+      }
+
+      this.selectedDate = newDateStr
     },
-    
+
+    goToToday() {
+      this.selectedDate = new Date().toISOString().split('T')[0]
+      this.showNotification('Switched to today\'s view', 'info')
+    },
+
     changeMonth(months) {
       const newDate = new Date(this.calendarDate)
       newDate.setMonth(newDate.getMonth() + months)
       this.calendarDate = newDate
     },
-    
+
     selectCalendarDate(date) {
+      const today = new Date().toISOString().split('T')[0]
+
+      // Prevent selecting future dates
+      if (date > today) {
+        this.showNotification('Cannot view future dates', 'warning')
+        return
+      }
+
       this.selectedDate = date
       this.currentView = 'today'
     },
-    
+
     formatDate(dateStr) {
       const date = new Date(dateStr + 'T00:00:00')
       const today = new Date()
@@ -701,7 +687,7 @@ export default {
       yesterday.setDate(yesterday.getDate() - 1)
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
-      
+
       if (dateStr === today.toISOString().split('T')[0]) {
         return 'Today'
       } else if (dateStr === yesterday.toISOString().split('T')[0]) {
@@ -709,22 +695,22 @@ export default {
       } else if (dateStr === tomorrow.toISOString().split('T')[0]) {
         return 'Tomorrow'
       } else {
-        return date.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
+        return date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
         })
       }
     },
-    
+
     formatMonth(date) {
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long' 
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long'
       })
     },
-    
+
     async loadAllMedicines() {
       try {
         const response = await fetch('/api/medicines/all')
@@ -733,23 +719,23 @@ export default {
         console.error('Error loading all medicines:', error)
       }
     },
-    
+
     async archiveMedicine(medicineId) {
       try {
         const medicine = this.activeMedicines.find(m => m.id === medicineId)
         const medicineName = medicine ? medicine.name : 'Medicine'
-        
+
         const response = await fetch(`/api/medicines/${medicineId}/archive`, {
           method: 'PUT'
         })
-        
+
         if (response.ok) {
           await Promise.all([
             this.loadAllMedicines(),
             this.loadMedicines(),
             this.loadStats()
           ])
-          
+
           this.showNotification(`"${medicineName}" has been archived successfully!`, 'success')
         } else {
           this.showNotification('Failed to archive medicine. Please try again.', 'error')
@@ -759,23 +745,23 @@ export default {
         this.showNotification('Error archiving medicine. Please check your connection.', 'error')
       }
     },
-    
+
     async reactivateMedicine(medicineId) {
       try {
         const medicine = this.archivedMedicines.find(m => m.id === medicineId)
         const medicineName = medicine ? medicine.name : 'Medicine'
-        
+
         const response = await fetch(`/api/medicines/${medicineId}/reactivate`, {
           method: 'PUT'
         })
-        
+
         if (response.ok) {
           await Promise.all([
             this.loadAllMedicines(),
             this.loadMedicines(),
             this.loadStats()
           ])
-          
+
           this.showNotification(`"${medicineName}" has been reactivated successfully!`, 'success')
         } else {
           this.showNotification('Failed to reactivate medicine. Please try again.', 'error')
@@ -785,7 +771,7 @@ export default {
         this.showNotification('Error reactivating medicine. Please check your connection.', 'error')
       }
     },
-    
+
     showConfirmDialog(options) {
       this.confirmDialog = {
         show: true,
@@ -801,12 +787,12 @@ export default {
         onConfirm: options.onConfirm || null
       }
     },
-    
+
     cancelConfirm() {
       this.confirmDialog.show = false
       this.confirmDialog.onConfirm = null
     },
-    
+
     confirmAction() {
       if (this.confirmDialog.onConfirm) {
         this.confirmDialog.onConfirm()
@@ -817,7 +803,7 @@ export default {
     async deleteMedicine(medicineId) {
       const medicine = this.archivedMedicines.find(m => m.id === medicineId)
       const medicineName = medicine ? medicine.name : 'Medicine'
-      
+
       // Show beautiful custom confirmation dialog
       this.showConfirmDialog({
         title: 'Delete Medicine Permanently?',
@@ -838,14 +824,14 @@ export default {
             const response = await fetch(`/api/medicines/${medicineId}`, {
               method: 'DELETE'
             })
-            
+
             if (response.ok) {
               await Promise.all([
                 this.loadAllMedicines(),
                 this.loadMedicines(),
                 this.loadStats()
               ])
-              
+
               this.showNotification(`"${medicineName}" has been permanently deleted.`, 'warning')
             } else {
               this.showNotification('Failed to delete medicine. Please try again.', 'error')
@@ -857,14 +843,14 @@ export default {
         }
       })
     },
-    
+
     formatCreatedDate(dateStr) {
       if (!dateStr) return 'Unknown'
       const date = new Date(dateStr)
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
       })
     }
   }
