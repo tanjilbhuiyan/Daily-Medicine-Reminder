@@ -1,31 +1,130 @@
+/**
+ * Medicine Reminder API Server
+ * 
+ * A secure Express.js server that provides REST API endpoints for managing
+ * medicine reminders, schedules, and dose tracking. Uses SQLite for data
+ * persistence and includes comprehensive security measures.
+ * 
+ * @author Medicine Reminder Team
+ * @version 1.0.0
+ * @license MIT
+ */
+
 import express from 'express'
 import sqlite3 from 'sqlite3'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import rateLimit from 'express-rate-limit'
+import helmet from 'helmet'
+import { body, param, query, validationResult } from 'express-validator'
 
+// ES6 module compatibility for __dirname
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// Initialize Express application
 const app = express()
+
+// Environment configuration with secure defaults
 const PORT = process.env.PORT || 3001
 const NODE_ENV = process.env.NODE_ENV || 'development'
+const MAX_REQUEST_SIZE = process.env.MAX_REQUEST_SIZE || '1mb'
 
-// Middleware
-app.use(cors())
-app.use(express.json())
+// Security Configuration
+// ===================
 
-// Serve static files in production
+// Security headers middleware - protects against common vulnerabilities
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false // Allow embedding for development
+}))
+
+// Rate limiting - prevents abuse and DoS attacks
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: NODE_ENV === 'production' ? 100 : 1000, // Limit each IP to 100 requests per windowMs in production
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+})
+app.use('/api/', limiter)
+
+// CORS configuration - secure cross-origin requests
+const corsOptions = {
+  origin: NODE_ENV === 'production' 
+    ? process.env.ALLOWED_ORIGINS?.split(',') || false // Only allow specific origins in production
+    : true, // Allow all origins in development
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}
+app.use(cors(corsOptions))
+
+// Body parsing middleware with size limits
+app.use(express.json({ 
+  limit: MAX_REQUEST_SIZE,
+  strict: true // Only parse arrays and objects
+}))
+app.use(express.urlencoded({ 
+  extended: false, 
+  limit: MAX_REQUEST_SIZE 
+}))
+
+// Static file serving in production with security headers
 if (NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'dist')
-  app.use(express.static(distPath))
+  app.use(express.static(distPath, {
+    maxAge: '1d', // Cache static files for 1 day
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, path) => {
+      // Additional security headers for static files
+      if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache')
+      }
+    }
+  }))
 }
 
-// Initialize SQLite database
-const dbPath = process.env.NODE_ENV === 'production' 
+// Database Configuration & Security
+// ================================
+
+/**
+ * Initialize SQLite database with secure configuration
+ * - Uses separate paths for development and production
+ * - Enables foreign key constraints for data integrity
+ * - Sets secure database options
+ */
+const dbPath = NODE_ENV === 'production' 
   ? path.join('/app/data', 'medicines.db')
   : path.join(__dirname, 'medicines.db')
-const db = new sqlite3.Database(dbPath)
+
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Database connection error:', err.message)
+    process.exit(1)
+  }
+  console.log(`Connected to SQLite database: ${dbPath}`)
+})
+
+// Enable foreign key constraints for data integrity
+db.run('PRAGMA foreign_keys = ON')
+
+// Set secure database options
+db.run('PRAGMA journal_mode = WAL') // Write-Ahead Logging for better concurrency
+db.run('PRAGMA synchronous = NORMAL') // Balance between safety and performance
 
 // Initialize database tables
 db.serialize(() => {
@@ -120,15 +219,140 @@ function generateTimeLabels(frequency, scheduleType, customTimes = null, presetT
   }
 }
 
-// Get today's date string
+// Utility Functions
+// =================
+
+/**
+ * Get today's date in YYYY-MM-DD format
+ * @returns {string} Today's date string
+ */
 function getTodayString() {
   return new Date().toISOString().split('T')[0]
 }
 
-// Routes
+/**
+ * Validate date string format (YYYY-MM-DD)
+ * @param {string} dateStr - Date string to validate
+ * @returns {boolean} True if valid date format
+ */
+function isValidDateString(dateStr) {
+  const regex = /^\d{4}-\d{2}-\d{2}$/
+  if (!regex.test(dateStr)) return false
+  
+  const date = new Date(dateStr + 'T00:00:00')
+  return date.toISOString().split('T')[0] === dateStr
+}
 
-// Get active medicines with doses for a specific date (Today view)
-app.get('/api/medicines', (req, res) => {
+/**
+ * Sanitize and validate medicine name
+ * @param {string} name - Medicine name to sanitize
+ * @returns {string} Sanitized name
+ */
+function sanitizeMedicineName(name) {
+  if (typeof name !== 'string') return ''
+  return name.trim().substring(0, 100) // Limit length and trim whitespace
+}
+
+/**
+ * Middleware to handle validation errors
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+function handleValidationErrors(req, res, next) {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: errors.array()
+    })
+  }
+  next()
+}
+
+// Input Validation Rules
+// =====================
+
+const medicineValidation = [
+  body('name')
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Medicine name must be 1-100 characters'),
+  body('frequency')
+    .isInt({ min: 1, max: 4 })
+    .withMessage('Frequency must be between 1 and 4'),
+  body('scheduleType')
+    .isIn(['preset', 'interval', 'custom'])
+    .withMessage('Schedule type must be preset, interval, or custom'),
+  body('customTimes')
+    .optional()
+    .isArray({ max: 4 })
+    .withMessage('Custom times must be an array with max 4 items'),
+  body('presetTimes')
+    .optional()
+    .isString()
+    .isLength({ max: 50 })
+    .withMessage('Preset times must be a string with max 50 characters')
+]
+
+const doseValidation = [
+  param('id')
+    .isInt({ min: 1 })
+    .withMessage('Dose ID must be a positive integer'),
+  body('taken')
+    .isBoolean()
+    .withMessage('Taken must be a boolean value')
+]
+
+const medicineIdValidation = [
+  param('id')
+    .isInt({ min: 1 })
+    .withMessage('Medicine ID must be a positive integer')
+]
+
+const calendarValidation = [
+  param('year')
+    .isInt({ min: 2020, max: 2030 })
+    .withMessage('Year must be between 2020 and 2030'),
+  param('month')
+    .isInt({ min: 1, max: 12 })
+    .withMessage('Month must be between 1 and 12')
+]
+
+const dateValidation = [
+  query('date')
+    .optional()
+    .custom((value) => {
+      if (value && !isValidDateString(value)) {
+        throw new Error('Date must be in YYYY-MM-DD format')
+      }
+      return true
+    })
+]
+
+const statsValidation = [
+  query('period')
+    .optional()
+    .isIn(['week', 'month'])
+    .withMessage('Period must be either week or month')
+]
+
+// API Routes with Security & Validation
+// ====================================
+
+/**
+ * GET /api/medicines
+ * Get active medicines with doses for a specific date (Today view)
+ * 
+ * Query Parameters:
+ * - date (optional): Date in YYYY-MM-DD format, defaults to today
+ * 
+ * Returns: Array of active medicines with their doses for the specified date
+ * 
+ * Security: Input validation, SQL injection protection via parameterized queries
+ */
+app.get('/api/medicines', dateValidation, handleValidationErrors, (req, res) => {
   const date = req.query.date || getTodayString()
 
   db.all(`
@@ -205,48 +429,122 @@ app.get('/api/medicines', (req, res) => {
   })
 })
 
-// Add new medicine
-app.post('/api/medicines', (req, res) => {
+/**
+ * POST /api/medicines
+ * Add a new medicine with schedule configuration
+ * 
+ * Request Body:
+ * - name: Medicine name (1-100 characters)
+ * - frequency: Number of times per day (1-4)
+ * - scheduleType: 'preset', 'interval', or 'custom'
+ * - customTimes: Array of time strings (for custom schedule)
+ * - presetTimes: Preset time configuration string
+ * 
+ * Returns: Created medicine ID and success message
+ * 
+ * Security: Input validation, sanitization, SQL injection protection
+ */
+app.post('/api/medicines', medicineValidation, handleValidationErrors, (req, res) => {
   const { name, frequency, scheduleType, customTimes, presetTimes } = req.body
 
-  // Store custom times as JSON string if provided
-  const customTimesJson = customTimes && scheduleType === 'custom' ? JSON.stringify(customTimes) : null
+  // Sanitize input data
+  const sanitizedName = sanitizeMedicineName(name)
+  const parsedFrequency = parseInt(frequency)
+  
+  // Validate custom times if provided
+  let customTimesJson = null
+  if (scheduleType === 'custom' && customTimes) {
+    try {
+      // Validate time format (HH:MM)
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/
+      const validTimes = customTimes.filter(time => 
+        typeof time === 'string' && timeRegex.test(time.trim())
+      )
+      
+      if (validTimes.length !== parsedFrequency) {
+        return res.status(400).json({ 
+          error: 'Custom times count must match frequency' 
+        })
+      }
+      
+      customTimesJson = JSON.stringify(validTimes)
+    } catch (error) {
+      return res.status(400).json({ 
+        error: 'Invalid custom times format' 
+      })
+    }
+  }
 
   db.run(`
     INSERT INTO medicines (name, frequency, schedule_type, custom_times, preset_times)
     VALUES (?, ?, ?, ?, ?)
-  `, [name, parseInt(frequency), scheduleType, customTimesJson, presetTimes], function (err) {
+  `, [sanitizedName, parsedFrequency, scheduleType, customTimesJson, presetTimes], function (err) {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error adding medicine:', err)
+      res.status(500).json({ error: 'Failed to add medicine' })
       return
     }
 
     const medicineId = this.lastID
     const today = getTodayString()
-    const timeLabels = generateTimeLabels(parseInt(frequency), scheduleType, customTimes, presetTimes)
+    const timeLabels = generateTimeLabels(parsedFrequency, scheduleType, customTimes, presetTimes)
 
-    // Create today's doses
+    // Create today's doses with error handling
+    let dosesCreated = 0
+    const totalDoses = timeLabels.length
+    
+    if (totalDoses === 0) {
+      return res.json({ id: medicineId, message: 'Medicine added successfully' })
+    }
+
     timeLabels.forEach(label => {
       db.run(`
         INSERT INTO doses (medicine_id, time_label, taken, date)
         VALUES (?, ?, 0, ?)
-      `, [medicineId, label, today])
+      `, [medicineId, label, today], (err) => {
+        dosesCreated++
+        if (err) {
+          console.error('Error creating dose:', err)
+        }
+        
+        // Send response when all doses are processed
+        if (dosesCreated === totalDoses) {
+          res.json({ id: medicineId, message: 'Medicine added successfully' })
+        }
+      })
     })
-
-    res.json({ id: medicineId, message: 'Medicine added successfully' })
   })
 })
 
-// Update dose status
-app.put('/api/doses/:id', (req, res) => {
+/**
+ * PUT /api/doses/:id
+ * Update the taken status of a specific dose
+ * 
+ * Parameters:
+ * - id: Dose ID (positive integer)
+ * 
+ * Request Body:
+ * - taken: Boolean indicating if dose was taken
+ * 
+ * Returns: Success message
+ * 
+ * Security: Input validation, SQL injection protection
+ */
+app.put('/api/doses/:id', doseValidation, handleValidationErrors, (req, res) => {
   const { id } = req.params
   const { taken } = req.body
 
   db.run(`
     UPDATE doses SET taken = ? WHERE id = ?
-  `, [taken ? 1 : 0, id], function (err) {
+  `, [taken ? 1 : 0, parseInt(id)], function (err) {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error updating dose:', err)
+      res.status(500).json({ error: 'Failed to update dose' })
+      return
+    }
+
+    if (this.changes === 0) {
+      res.status(404).json({ error: 'Dose not found' })
       return
     }
 
@@ -254,8 +552,19 @@ app.put('/api/doses/:id', (req, res) => {
   })
 })
 
-// Get calendar data for a specific month
-app.get('/api/calendar/:year/:month', (req, res) => {
+/**
+ * GET /api/calendar/:year/:month
+ * Get calendar data showing medicine adherence for a specific month
+ * 
+ * Parameters:
+ * - year: Year (2020-2030)
+ * - month: Month (1-12)
+ * 
+ * Returns: Object with date keys and adherence statistics
+ * 
+ * Security: Input validation, SQL injection protection
+ */
+app.get('/api/calendar/:year/:month', calendarValidation, handleValidationErrors, (req, res) => {
   const { year, month } = req.params
   const startDate = `${year}-${month.padStart(2, '0')}-01`
   const endDate = `${year}-${(parseInt(month) + 1).toString().padStart(2, '0')}-01`
@@ -270,7 +579,8 @@ app.get('/api/calendar/:year/:month', (req, res) => {
     GROUP BY d.date
   `, [startDate, endDate], (err, rows) => {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error fetching calendar data:', err)
+      res.status(500).json({ error: 'Failed to fetch calendar data' })
       return
     }
 
@@ -288,8 +598,18 @@ app.get('/api/calendar/:year/:month', (req, res) => {
   })
 })
 
-// Get statistics for medicines
-app.get('/api/stats', (req, res) => {
+/**
+ * GET /api/stats
+ * Get medicine adherence statistics for a specific period
+ * 
+ * Query Parameters:
+ * - period (optional): 'week' or 'month', defaults to 'week'
+ * 
+ * Returns: Array of medicine statistics with adherence percentages
+ * 
+ * Security: Input validation, SQL injection protection
+ */
+app.get('/api/stats', statsValidation, handleValidationErrors, (req, res) => {
   const period = req.query.period || 'week'
   const today = new Date()
   let startDate
@@ -319,7 +639,8 @@ app.get('/api/stats', (req, res) => {
     ORDER BY m.name
   `, [startDate, endDate], (err, rows) => {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error fetching statistics:', err)
+      res.status(500).json({ error: 'Failed to fetch statistics' })
       return
     }
 
@@ -342,14 +663,22 @@ app.get('/api/stats', (req, res) => {
   })
 })
 
-// Get all medicines (both active and archived) for Medicines page
+/**
+ * GET /api/medicines/all
+ * Get all medicines (both active and archived) for Medicines management page
+ * 
+ * Returns: Array of all medicines with archived status
+ * 
+ * Security: SQL injection protection via parameterized queries
+ */
 app.get('/api/medicines/all', (req, res) => {
   db.all(`
     SELECT * FROM medicines 
     ORDER BY archived ASC, created_at DESC
   `, [], (err, rows) => {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error fetching all medicines:', err)
+      res.status(500).json({ error: 'Failed to fetch medicines' })
       return
     }
     
@@ -362,23 +691,34 @@ app.get('/api/medicines/all', (req, res) => {
   })
 })
 
-// Archive a medicine
-app.put('/api/medicines/:id/archive', (req, res) => {
+/**
+ * PUT /api/medicines/:id/archive
+ * Archive a medicine (mark as completed/inactive)
+ * 
+ * Parameters:
+ * - id: Medicine ID (positive integer)
+ * 
+ * Returns: Success message
+ * 
+ * Security: Input validation, SQL injection protection
+ */
+app.put('/api/medicines/:id/archive', medicineIdValidation, handleValidationErrors, (req, res) => {
   const { id } = req.params
   const now = new Date().toISOString()
   
   db.run(`
     UPDATE medicines 
     SET archived = 1, archived_at = ?
-    WHERE id = ?
-  `, [now, id], function(err) {
+    WHERE id = ? AND archived = 0
+  `, [now, parseInt(id)], function(err) {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error archiving medicine:', err)
+      res.status(500).json({ error: 'Failed to archive medicine' })
       return
     }
     
     if (this.changes === 0) {
-      res.status(404).json({ error: 'Medicine not found' })
+      res.status(404).json({ error: 'Medicine not found or already archived' })
       return
     }
     
@@ -386,22 +726,33 @@ app.put('/api/medicines/:id/archive', (req, res) => {
   })
 })
 
-// Reactivate a medicine
-app.put('/api/medicines/:id/reactivate', (req, res) => {
+/**
+ * PUT /api/medicines/:id/reactivate
+ * Reactivate an archived medicine
+ * 
+ * Parameters:
+ * - id: Medicine ID (positive integer)
+ * 
+ * Returns: Success message
+ * 
+ * Security: Input validation, SQL injection protection
+ */
+app.put('/api/medicines/:id/reactivate', medicineIdValidation, handleValidationErrors, (req, res) => {
   const { id } = req.params
   
   db.run(`
     UPDATE medicines 
     SET archived = 0, archived_at = NULL
-    WHERE id = ?
-  `, [id], function(err) {
+    WHERE id = ? AND archived = 1
+  `, [parseInt(id)], function(err) {
     if (err) {
-      res.status(500).json({ error: err.message })
+      console.error('Database error reactivating medicine:', err)
+      res.status(500).json({ error: 'Failed to reactivate medicine' })
       return
     }
     
     if (this.changes === 0) {
-      res.status(404).json({ error: 'Medicine not found' })
+      res.status(404).json({ error: 'Medicine not found or already active' })
       return
     }
     
@@ -409,30 +760,61 @@ app.put('/api/medicines/:id/reactivate', (req, res) => {
   })
 })
 
-// Delete a medicine permanently
-app.delete('/api/medicines/:id', (req, res) => {
+/**
+ * DELETE /api/medicines/:id
+ * Permanently delete a medicine and all associated data
+ * 
+ * Parameters:
+ * - id: Medicine ID (positive integer)
+ * 
+ * Returns: Success message
+ * 
+ * Security: Input validation, SQL injection protection, cascading delete
+ * 
+ * Warning: This permanently deletes all medicine data including dose history
+ */
+app.delete('/api/medicines/:id', medicineIdValidation, handleValidationErrors, (req, res) => {
   const { id } = req.params
+  const medicineId = parseInt(id)
   
-  // First delete all doses for this medicine
-  db.run(`DELETE FROM doses WHERE medicine_id = ?`, [id], (err) => {
-    if (err) {
-      res.status(500).json({ error: err.message })
-      return
-    }
+  // Use transaction for data integrity
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION')
     
-    // Then delete the medicine
-    db.run(`DELETE FROM medicines WHERE id = ?`, [id], function(err) {
+    // First delete all doses for this medicine
+    db.run(`DELETE FROM doses WHERE medicine_id = ?`, [medicineId], (err) => {
       if (err) {
-        res.status(500).json({ error: err.message })
+        console.error('Database error deleting doses:', err)
+        db.run('ROLLBACK')
+        res.status(500).json({ error: 'Failed to delete medicine data' })
         return
       }
       
-      if (this.changes === 0) {
-        res.status(404).json({ error: 'Medicine not found' })
-        return
-      }
-      
-      res.json({ message: 'Medicine deleted successfully' })
+      // Then delete the medicine
+      db.run(`DELETE FROM medicines WHERE id = ?`, [medicineId], function(err) {
+        if (err) {
+          console.error('Database error deleting medicine:', err)
+          db.run('ROLLBACK')
+          res.status(500).json({ error: 'Failed to delete medicine' })
+          return
+        }
+        
+        if (this.changes === 0) {
+          db.run('ROLLBACK')
+          res.status(404).json({ error: 'Medicine not found' })
+          return
+        }
+        
+        db.run('COMMIT', (err) => {
+          if (err) {
+            console.error('Database error committing transaction:', err)
+            res.status(500).json({ error: 'Failed to complete deletion' })
+            return
+          }
+          
+          res.json({ message: 'Medicine deleted successfully' })
+        })
+      })
     })
   })
 })

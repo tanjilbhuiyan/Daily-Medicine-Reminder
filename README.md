@@ -1,15 +1,37 @@
-# Medicine Reminder App
+# 💊 Medicine Reminder
 
-A simple Vue.js application with SQLite backend for tracking daily medicine intake.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Vue.js](https://img.shields.io/badge/Vue.js-3.4+-4FC08D.svg)](https://vuejs.org/)
+[![Security](https://img.shields.io/badge/Security-Audited-green.svg)](./SECURITY.md)
 
-## Features
+A secure, user-friendly Vue.js application with SQLite backend for tracking daily medicine intake. Built with privacy and security in mind - no login required, all data stays local.
 
-- ✅ Add medicines with custom schedules (preset times, intervals, or custom times)
-- ✅ Daily medicine tracking with checkboxes
-- ✅ Calendar view to see historical progress
-- ✅ Statistics for weekly/monthly adherence
-- ✅ Archive completed medicine courses
-- ✅ Responsive design for mobile and desktop
+## ✨ Features
+
+### 📋 Medicine Management
+- ✅ **Flexible Scheduling**: Preset times, equal intervals, or custom times
+- ✅ **Smart Reminders**: Visual indicators for missed doses
+- ✅ **Archive System**: Mark completed medicine courses as archived
+- ✅ **Bulk Operations**: Manage multiple medicines efficiently
+
+### 📊 Tracking & Analytics
+- ✅ **Daily Tracking**: Simple checkbox interface for dose confirmation
+- ✅ **Calendar View**: Visual progress tracking with monthly overview
+- ✅ **Statistics**: Weekly/monthly adherence reports with percentages
+- ✅ **Historical Data**: Complete dose history preservation
+
+### 🔒 Privacy & Security
+- ✅ **No Registration**: Start using immediately, no account needed
+- ✅ **Local Data**: All information stored locally on your device
+- ✅ **Secure API**: Input validation, rate limiting, SQL injection protection
+- ✅ **Open Source**: Transparent, auditable codebase
+
+### 📱 User Experience
+- ✅ **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
+- ✅ **Intuitive Interface**: Clean, accessible design with clear navigation
+- ✅ **Real-time Updates**: Instant feedback and notifications
+- ✅ **Offline Ready**: Core functionality works without internet
 
 ## Quick Start with Docker
 

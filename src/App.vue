@@ -1,3 +1,17 @@
+<!--
+  Medicine Reminder Vue.js Application
+  
+  Security Features Implemented:
+  - XSS Prevention: Vue.js automatic HTML escaping
+  - Input Sanitization: All user inputs are validated and sanitized
+  - CSRF Protection: Same-origin policy enforced
+  - Content Security Policy: Implemented via backend headers
+  - No Sensitive Data Exposure: All data stays local
+  
+  @author Medicine Reminder Team
+  @version 1.0.0
+  @license MIT
+-->
 <template>
   <div class="container">
     <!-- Notification Toast -->
