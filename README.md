@@ -5,7 +5,7 @@
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.4+-4FC08D.svg)](https://vuejs.org/)
 [![Security](https://img.shields.io/badge/Security-Audited-green.svg)](./SECURITY.md)
 
-A secure, user-friendly Vue.js application with SQLite backend for tracking daily medicine intake. Built with privacy and security in mind - no login required, all data stays local.
+A secure, user-friendly Vue.js application with Express.js backend and SQLite database for tracking daily medicine intake. Built with privacy and security in mind - no login required, all data stays local.
 
 ## ✨ Features
 
@@ -94,22 +94,69 @@ npm install
 npm run dev
 ```
 
-3. Open your browser to `http://localhost:3000`
+3. Open your browser to:
+   - **Development**: `http://localhost:3001` (Vite dev server with hot reload)
+   - **Production**: `http://localhost:3000` (Express server)
 
 ### Available Scripts
 
-- `npm run dev` - Start development server (frontend + backend)
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run client` - Start only frontend (Vite)
-- `npm run server` - Start only backend (Node.js)
+- `npm run dev` - Start development server (frontend on :3001 + backend on :3000)
+- `npm run build` - Build frontend for production
+- `npm run start` - Start production server (serves built frontend + API on :3000)
+- `npm run client` - Start only frontend (Vite dev server on :3001)
+- `npm run server` - Start only backend (Express API server on :3000)
+- `npm run preview` - Preview production build locally
+
+### Development vs Production
+
+#### Development Mode (`npm run dev`)
+- **Frontend**: Vite dev server on port 3001 (with hot reload)
+- **Backend**: Express API server on port 3000
+- **Proxy**: Vite proxies `/api/*` requests to Express server
+- **Access**: `http://localhost:3001`
+
+#### Production Mode (`npm start` or Docker)
+- **Everything**: Express server on port 3000
+- **Frontend**: Served as static files from `/dist` folder
+- **Backend**: API endpoints on same server
+- **Access**: `http://localhost:3000`
+
+## Project Structure
+
+```
+med-reminder/
+├── src/                    # Vue.js frontend source
+│   ├── components/         # Vue components
+│   ├── utils/             # Frontend utilities
+│   └── main.js            # Frontend entry point
+├── server/                # Express.js backend
+│   ├── routes/            # API route handlers
+│   │   ├── medicines.js   # Medicine CRUD operations
+│   │   ├── doses.js       # Dose tracking
+│   │   ├── calendar.js    # Calendar data
+│   │   └── stats.js       # Statistics
+│   ├── config/            # Server configuration
+│   │   ├── database.js    # SQLite setup
+│   │   └── security.js    # Security middleware
+│   ├── middleware/        # Custom middleware
+│   │   └── validation.js  # Input validation
+│   ├── utils/             # Backend utilities
+│   │   └── helpers.js     # Helper functions
+│   └── app.js             # Express server entry point
+├── dist/                  # Built frontend (generated)
+├── docker-compose.yml     # Docker configuration
+├── Dockerfile            # Docker build instructions
+└── vite.config.js        # Vite configuration
 
 ## Architecture
 
-- **Frontend**: Vue 3 + Vite
-- **Backend**: Node.js + Express
-- **Database**: SQLite
-- **Styling**: Custom CSS
+- **Frontend**: Vue 3 + Vite (ES modules, hot reload)
+- **Backend**: Node.js + Express (ES modules, RESTful API)
+- **Database**: SQLite (file-based, no setup required)
+- **Styling**: Custom CSS (responsive design)
+- **Security**: Helmet, CORS, rate limiting, input validation
+- **Development**: Concurrent frontend/backend with proxy
+- **Production**: Single server serving static files + API
 
 ## API Endpoints
 
