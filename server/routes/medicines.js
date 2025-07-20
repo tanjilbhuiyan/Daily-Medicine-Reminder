@@ -7,11 +7,11 @@
 import express from 'express'
 import { db } from '../config/database.js'
 import { getTodayString, generateTimeLabels, sanitizeMedicineName } from '../utils/helpers.js'
-import { 
-  medicineValidation, 
-  medicineIdValidation, 
-  dateValidation, 
-  handleValidationErrors 
+import {
+  medicineValidation,
+  medicineIdValidation,
+  dateValidation,
+  handleValidationErrors
 } from '../middleware/validation.js'
 
 const router = express.Router()
@@ -60,7 +60,7 @@ router.get('/all', (req, res) => {
  */
 router.post('/', medicineValidation, handleValidationErrors, (req, res) => {
   const { name, frequency, scheduleType, customTimes, presetTimes } = req.body
-  
+
   const sanitizedName = sanitizeMedicineName(name)
   if (!sanitizedName) {
     return res.status(400).json({ error: 'Invalid medicine name' })
@@ -77,7 +77,7 @@ router.post('/', medicineValidation, handleValidationErrors, (req, res) => {
   db.run(`
     INSERT INTO medicines (name, frequency, schedule_type, custom_times, preset_times)
     VALUES (?, ?, ?, ?, ?)
-  `, [sanitizedName, frequency, scheduleType, customTimesJson, presetTimesStr], function(err) {
+  `, [sanitizedName, frequency, scheduleType, customTimesJson, presetTimesStr], function (err) {
     if (err) {
       console.error('Database error:', err)
       return res.status(500).json({ error: 'Failed to add medicine' })
@@ -101,9 +101,9 @@ router.post('/', medicineValidation, handleValidationErrors, (req, res) => {
         console.error('Error creating dose records:', err)
         return res.status(500).json({ error: 'Failed to create dose records' })
       }
-      res.status(201).json({ 
-        message: 'Medicine added successfully', 
-        id: medicineId 
+      res.status(201).json({
+        message: 'Medicine added successfully',
+        id: medicineId
       })
     })
   })
@@ -121,7 +121,7 @@ router.put('/:id/archive', medicineIdValidation, handleValidationErrors, (req, r
     UPDATE medicines 
     SET archived = 1, archived_at = ?
     WHERE id = ? AND archived = 0
-  `, [now, id], function(err) {
+  `, [now, id], function (err) {
     if (err) {
       console.error('Database error:', err)
       return res.status(500).json({ error: 'Failed to archive medicine' })
@@ -141,12 +141,12 @@ router.put('/:id/archive', medicineIdValidation, handleValidationErrors, (req, r
  */
 router.put('/:id/reactivate', medicineIdValidation, handleValidationErrors, (req, res) => {
   const { id } = req.params
-  
+
   db.run(`
     UPDATE medicines 
     SET archived = 0, archived_at = NULL
     WHERE id = ? AND archived = 1
-  `, [id], function(err) {
+  `, [id], function (err) {
     if (err) {
       console.error('Database error:', err)
       return res.status(500).json({ error: 'Failed to reactivate medicine' })
@@ -192,13 +192,13 @@ router.delete('/:id', medicineIdValidation, handleValidationErrors, (req, res) =
     }
 
     // Delete medicine (doses will be deleted automatically due to foreign key constraint)
-    db.run('DELETE FROM medicines WHERE id = ?', [medicineId], function(err) {
+    db.run('DELETE FROM medicines WHERE id = ?', [medicineId], function (err) {
       if (err) {
         console.error('Database error:', err)
         return res.status(500).json({ error: 'Failed to delete medicine' })
       }
 
-      res.json({ 
+      res.json({
         message: 'Medicine and all associated dose records deleted successfully',
         deletedMedicine: medicine.name
       })
@@ -214,7 +214,7 @@ router.delete('/:id', medicineIdValidation, handleValidationErrors, (req, res) =
 function ensureTodayDoses() {
   return new Promise((resolve, reject) => {
     const today = getTodayString()
-    
+
     db.all(`
       SELECT id, frequency, schedule_type, custom_times, preset_times 
       FROM medicines 
@@ -237,9 +237,9 @@ function ensureTodayDoses() {
       medicines.forEach(medicine => {
         const customTimes = medicine.custom_times ? JSON.parse(medicine.custom_times) : null
         const timeLabels = generateTimeLabels(
-          medicine.frequency, 
-          medicine.schedule_type, 
-          customTimes, 
+          medicine.frequency,
+          medicine.schedule_type,
+          customTimes,
           medicine.preset_times
         )
 
@@ -265,7 +265,7 @@ function ensureTodayDoses() {
 function ensureTodayDosesForMedicine(medicineId) {
   return new Promise((resolve, reject) => {
     const today = getTodayString()
-    
+
     db.get(`
       SELECT frequency, schedule_type, custom_times, preset_times 
       FROM medicines 
@@ -281,9 +281,9 @@ function ensureTodayDosesForMedicine(medicineId) {
 
       const customTimes = medicine.custom_times ? JSON.parse(medicine.custom_times) : null
       const timeLabels = generateTimeLabels(
-        medicine.frequency, 
-        medicine.schedule_type, 
-        customTimes, 
+        medicine.frequency,
+        medicine.schedule_type,
+        customTimes,
         medicine.preset_times
       )
 
@@ -324,11 +324,13 @@ function fetchMedicinesForDate(date, res) {
       d.taken_at
     FROM medicines m
     LEFT JOIN doses d ON m.id = d.medicine_id AND d.date = ?
-    WHERE m.archived = 0
+    WHERE m.archived = 0 
+      AND DATE(m.created_at) <= ?
+      AND (m.archived_at IS NULL OR DATE(m.archived_at) > ?)
     ORDER BY m.created_at DESC, d.time_label ASC
   `
 
-  db.all(query, [date], (err, rows) => {
+  db.all(query, [date, date, date], (err, rows) => {
     if (err) {
       console.error('Database error:', err)
       return res.status(500).json({ error: 'Database error' })
@@ -336,7 +338,7 @@ function fetchMedicinesForDate(date, res) {
 
     // Group doses by medicine
     const medicinesMap = new Map()
-    
+
     rows.forEach(row => {
       if (!medicinesMap.has(row.id)) {
         medicinesMap.set(row.id, {
@@ -359,6 +361,28 @@ function fetchMedicinesForDate(date, res) {
           taken: Boolean(row.taken),
           taken_at: row.taken_at
         })
+      }
+    })
+
+    // For medicines without dose records, create virtual doses for non-today dates
+    const today = getTodayString()
+    medicinesMap.forEach((medicine, medicineId) => {
+      if (medicine.doses.length === 0 && date !== today) {
+        // Generate virtual doses for dates other than today
+        const customTimes = medicine.custom_times ? JSON.parse(medicine.custom_times) : null
+        const timeLabels = generateTimeLabels(
+          medicine.frequency,
+          medicine.schedule_type,
+          customTimes,
+          medicine.preset_times
+        )
+
+        medicine.doses = timeLabels.map((label, index) => ({
+          id: `virtual-${medicineId}-${index}`, // Virtual ID for non-today dates
+          time_label: label,
+          taken: false,
+          taken_at: null
+        }))
       }
     })
 

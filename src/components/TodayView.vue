@@ -4,15 +4,11 @@
       <button @click="$emit('change-date', -1)" class="date-nav-btn">← Previous Day</button>
       <div class="date-info">
         <h2>{{ formattedDate }}</h2>
-        <div v-if="isPastDate" class="past-date-warning">
-          <span class="warning-icon">🔒</span>
-          <span>Past records are read-only</span>
-        </div>
         <div v-if="isFutureDate" class="future-date-warning">
           <span class="warning-icon">🚫</span>
           <span>Future dates are not accessible</span>
         </div>
-        <div v-if="!isToday" class="go-to-today">
+        <div v-if="!isToday && !isPastDate" class="go-to-today">
           <button @click="$emit('go-to-today')" class="btn-today">Go to Today</button>
         </div>
       </div>
@@ -32,15 +28,16 @@
         <div class="doses" v-if="medicine.doses && medicine.doses.length > 0">
           <div v-for="dose in medicine.doses" :key="dose.id" class="dose-item" :class="{
             taken: dose.taken,
-            disabled: isPastDate || isFutureDate,
+            disabled: isPastDate || isFutureDate || isVirtualDose(dose.id),
             'past-date': isPastDate,
-            'future-date': isFutureDate
+            'future-date': isFutureDate,
+            'virtual-dose': isVirtualDose(dose.id)
           }">
             <input type="checkbox" :checked="dose.taken" @change="$emit('toggle-dose', dose.id, $event.target.checked)"
-              :disabled="isPastDate || isFutureDate" class="dose-checkbox" />
+              :disabled="isPastDate || isFutureDate || isVirtualDose(dose.id)" class="dose-checkbox" />
             <span>{{ dose.time_label }}</span>
             <span v-if="dose.taken" style="color: green;">✓</span>
-            <span v-if="isPastDate && !dose.taken" class="missed-indicator" title="Missed dose">✗</span>
+            <span v-if="(isPastDate || isVirtualDose(dose.id)) && !dose.taken" class="missed-indicator" title="No record for this date">—</span>
           </div>
         </div>
       </div>
@@ -80,6 +77,11 @@ export default {
     },
     isFutureDate() {
       return isFutureDate(this.selectedDate)
+    }
+  },
+  methods: {
+    isVirtualDose(doseId) {
+      return typeof doseId === 'string' && doseId.startsWith('virtual-')
     }
   }
 }
