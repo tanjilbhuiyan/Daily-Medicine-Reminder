@@ -3,29 +3,33 @@ export function formatDate(dateStr) {
   console.log('Input dateStr:', dateStr)
   
   const date = new Date(dateStr + 'T00:00:00')
+  const todayStr = getTodayString()
+  
+  // Calculate yesterday and tomorrow using local time
   const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  
+  const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
 
-  console.log('Today:', today.toISOString().split('T')[0])
-  console.log('Yesterday:', yesterday.toISOString().split('T')[0])
+  console.log('Today:', todayStr)
+  console.log('Yesterday:', yesterdayStr)
   console.log('Date being formatted:', dateStr)
 
-  if (dateStr === today.toISOString().split('T')[0]) {
+  if (dateStr === todayStr) {
     return `Today, ${today.toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric'
     })}`
-  } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+  } else if (dateStr === yesterdayStr) {
     return `Yesterday, ${yesterday.toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric'
     })}`
-  } else if (dateStr === tomorrow.toISOString().split('T')[0]) {
+  } else if (dateStr === tomorrowStr) {
     return `Tomorrow, ${tomorrow.toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
@@ -94,7 +98,11 @@ export function formatStatDate(dateStr) {
 }
 
 export function getTodayString() {
-  return new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function isToday(dateStr) {
