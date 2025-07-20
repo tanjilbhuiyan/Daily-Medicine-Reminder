@@ -51,20 +51,26 @@ export default {
   },
   computed: {
     calendarDays() {
-      const year = this.calendarDate.getFullYear()
-      const month = this.calendarDate.getMonth()
-      const firstDay = new Date(year, month, 1)
-      const lastDay = new Date(year, month + 1, 0)
-      const startDate = new Date(firstDay)
-      startDate.setDate(startDate.getDate() - firstDay.getDay())
+      const year = this.calendarDate.getFullYear();
+      const month = this.calendarDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay());
 
-      const days = []
-      const today = getTodayString()
+      const days = [];
+      const today = getTodayString();
+
+      function getLocalDateString(date) {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
 
       for (let i = 0; i < 42; i++) {
-        const currentDate = new Date(startDate)
-        currentDate.setDate(startDate.getDate() + i)
-        const dateStr = currentDate.toISOString().split('T')[0]
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + i);
+        const dateStr = getLocalDateString(currentDate);
 
         days.push({
           date: dateStr,
@@ -72,10 +78,10 @@ export default {
           currentMonth: currentDate.getMonth() === month,
           isToday: dateStr === today,
           progress: this.calendarData[dateStr] || null
-        })
+        });
       }
 
-      return days
+      return days;
     }
   },
   methods: {
