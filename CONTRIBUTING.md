@@ -30,7 +30,7 @@ Thank you for your interest in contributing to Medicine Reminder! This document 
 
 4. **Access the Application**
    - Frontend: http://localhost:3000
-   - Backend API: http://localhost:3001
+   - Backend API: http://localhost:3000
 
 ## 📋 How to Contribute
 

@@ -75,7 +75,7 @@ The Medicine Reminder application takes security seriously. This document outlin
 #### Production Environment Variables
 ```bash
 NODE_ENV=production
-PORT=3001
+PORT=3000
 ALLOWED_ORIGINS=https://yourdomain.com
 MAX_REQUEST_SIZE=1mb
 ```

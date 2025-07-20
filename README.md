@@ -131,7 +131,7 @@ npm run dev
 ## Environment Variables
 
 - `NODE_ENV` - Environment (development/production)
-- `PORT` - Server port (default: 3001)
+- `PORT` - Server port (default: 3000)
 
 ## Health Check
 
