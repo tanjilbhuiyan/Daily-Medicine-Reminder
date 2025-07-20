@@ -119,7 +119,15 @@ export default {
       }
     },
     handleSubmit() {
-      this.$emit('add-medicine', { ...this.newMedicine })
+      const medicineData = {
+        ...this.newMedicine,
+        frequency: parseInt(this.newMedicine.frequency), // Convert to number
+        // Filter out empty custom times
+        customTimes: this.newMedicine.scheduleType === 'custom' 
+          ? this.newMedicine.customTimes.filter(time => time.trim() !== '')
+          : this.newMedicine.customTimes
+      }
+      this.$emit('add-medicine', medicineData)
       this.resetForm()
     },
     resetForm() {

@@ -220,7 +220,8 @@ export default {
                 await addMedicine(medicineData)
                 await Promise.all([
                     this.loadMedicinesData(),
-                    this.loadAllMedicinesData()
+                    this.loadAllMedicinesData(),
+                    this.loadStatsData()
                 ])
                 this.showNotification(`Medicine "${medicineData.name}" added successfully!`, 'success')
                 this.currentView = 'today'
@@ -237,7 +238,8 @@ export default {
                 await archiveMedicine(medicineId)
                 await Promise.all([
                     this.loadAllMedicinesData(),
-                    this.loadMedicinesData()
+                    this.loadMedicinesData(),
+                    this.loadStatsData()
                 ])
                 this.showNotification(`"${medicineName}" has been archived successfully!`, 'success')
             } catch (error) {
@@ -253,7 +255,8 @@ export default {
                 await reactivateMedicine(medicineId)
                 await Promise.all([
                     this.loadAllMedicinesData(),
-                    this.loadMedicinesData()
+                    this.loadMedicinesData(),
+                    this.loadStatsData()
                 ])
                 this.showNotification(`"${medicineName}" has been reactivated successfully!`, 'success')
             } catch (error) {
@@ -269,7 +272,8 @@ export default {
                 await deleteMedicine(medicineId)
                 await Promise.all([
                     this.loadAllMedicinesData(),
-                    this.loadMedicinesData()
+                    this.loadMedicinesData(),
+                    this.loadStatsData()
                 ])
                 this.showNotification(`"${medicineName}" has been deleted permanently.`, 'success')
             } catch (error) {
