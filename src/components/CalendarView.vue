@@ -60,6 +60,7 @@ export default {
       const days = [];
       const today = getTodayString();
 
+      // Use consistent date string formatting
       function getLocalDateString(date) {
         const yyyy = date.getFullYear();
         const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -68,8 +69,8 @@ export default {
       }
 
       for (let i = 0; i < 42; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(startDate.getDate() + i);
+        // Create date using local time to avoid timezone issues
+        const currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i);
         const dateStr = getLocalDateString(currentDate);
 
         days.push({

@@ -2,7 +2,9 @@ export function formatDate(dateStr) {
   console.log('=== Date Formatting Debug ===')
   console.log('Input dateStr:', dateStr)
   
-  const date = new Date(dateStr + 'T00:00:00')
+  // Parse date string as local date to avoid timezone issues
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(year, month - 1, day) // month is 0-indexed
   const todayStr = getTodayString()
   
   // Calculate yesterday and tomorrow using local time
@@ -99,6 +101,7 @@ export function formatStatDate(dateStr) {
 
 export function getTodayString() {
   const now = new Date()
+  // Use local timezone to avoid UTC conversion issues
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')

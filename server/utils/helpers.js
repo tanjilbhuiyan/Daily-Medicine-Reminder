@@ -5,11 +5,12 @@
  */
 
 /**
- * Get today's date as YYYY-MM-DD string
+ * Get today's date as YYYY-MM-DD string using local timezone
  * @returns {string} Today's date string
  */
 export function getTodayString() {
   const now = new Date()
+  // Use local timezone to ensure consistency with client
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
@@ -25,8 +26,14 @@ export function isValidDateString(dateStr) {
   const regex = /^\d{4}-\d{2}-\d{2}$/
   if (!regex.test(dateStr)) return false
   
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toISOString().split('T')[0] === dateStr
+  // Parse as local date to avoid timezone issues
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(year, month - 1, day) // month is 0-indexed
+  
+  // Verify the date is valid and matches input
+  return date.getFullYear() === year && 
+         date.getMonth() === month - 1 && 
+         date.getDate() === day
 }
 
 /**
