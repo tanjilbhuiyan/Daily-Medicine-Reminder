@@ -19,13 +19,15 @@ export const securityHeaders = helmet({
 // Rate limiting configuration
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: NODE_ENV === 'production' ? 100 : 1000, // Limit requests per IP
+  max: NODE_ENV === 'production' ? 500 : 10000, // More generous limits
   message: {
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for health checks
+  skip: (req) => req.path === '/api/health'
 })
 
 // CORS configuration
