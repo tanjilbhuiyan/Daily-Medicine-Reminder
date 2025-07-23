@@ -7,8 +7,10 @@ export function formatDate(dateStr) {
   const date = new Date(year, month - 1, day) // month is 0-indexed
   const todayStr = getTodayString()
   
-  // Calculate yesterday and tomorrow using local time
-  const today = new Date()
+  // Calculate yesterday and tomorrow using UTC+6 timezone
+  const now = new Date()
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const today = new Date(utcTime + (6 * 3600000)) // UTC+6
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
   
@@ -101,10 +103,13 @@ export function formatStatDate(dateStr) {
 
 export function getTodayString() {
   const now = new Date()
-  // Use local timezone to avoid UTC conversion issues
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
+  // Convert to UTC+6 timezone to match server
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const clientTime = new Date(utcTime + (6 * 3600000)) // UTC+6
+  
+  const year = clientTime.getFullYear()
+  const month = String(clientTime.getMonth() + 1).padStart(2, '0')
+  const day = String(clientTime.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 

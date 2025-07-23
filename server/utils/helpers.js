@@ -5,15 +5,18 @@
  */
 
 /**
- * Get today's date as YYYY-MM-DD string using local timezone
+ * Get today's date as YYYY-MM-DD string using client timezone (UTC+6)
  * @returns {string} Today's date string
  */
 export function getTodayString() {
   const now = new Date()
-  // Use local timezone to ensure consistency with client
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
+  // Convert to UTC+6 timezone (client's timezone)
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const clientTime = new Date(utcTime + (6 * 3600000)) // UTC+6
+  
+  const year = clientTime.getFullYear()
+  const month = String(clientTime.getMonth() + 1).padStart(2, '0')
+  const day = String(clientTime.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
